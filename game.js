@@ -159,7 +159,8 @@
   }
 
   function addToast(text, color = neon, life = 1.2) {
-    toasts.push({ text, color, life, maxLife: life });
+    const doubledLife = life * 2;
+    toasts.push({ text, color, life: doubledLife, maxLife: doubledLife });
   }
 
   function triggerImpact(type) {

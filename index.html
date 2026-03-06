@@ -36,16 +36,17 @@
         <div class="panel">
           <h1>ipv6gg</h1>
           <p>Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.</p>
-          <p>Route per Tasten <strong>1-5</strong>, oder <strong>mobilen Buttons</strong> zum passenden Ziel.</p>
-          <p><strong>Lernhinweis:</strong> Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>
-          <p>Richtig: +10 Punkte | Falsch/Timeout: -1 Leben | 3 Leben gesamt.</p>
-          <button id="startBtn">Spiel starten</button>
+          <p>Route per Tasten <strong>1-5</strong>, oder <strong>Buttons</strong> (Touch=on) zum passenden Ziel.</p>
+          <p>Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>          
+          <p>Richtig: +10 Punkte | Falsch/Timeout: -1 Leben (3 gesamt).</p>
+          <p>Weitere Details siehe "Hilfe"</p>
+          <button id="startBtn">Spiel starten!</button>
         </div>
       </div>
 
       <div class="overlay hidden" id="endOverlay">
         <div class="panel">
-          <h2>Verbindung getrennt</h2>
+          <h2>ERROR: Verbindung getrennt!</h2>
           <p id="endScoreText"></p>
           <p id="endHighscoreText"></p>
           <button id="playAgainBtn">Play Again</button>
