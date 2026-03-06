@@ -20,6 +20,8 @@
   const GAME_W = 800;
   const GAME_H = 600;
   const TARGET_Y = 500;
+  const TARGET_MARGIN_X = 18;
+  const TARGET_GAP = 10;
   const STORAGE_KEY = "ipv6gg_highscore";
   const mobileMode = window.matchMedia("(max-width: 700px), (pointer: coarse)").matches;
 
@@ -42,10 +44,11 @@
   let running = false;
   let draggingPacket = null;
   let pointer = { x: 0, y: 0 };
-  let touchEnabled = mobileMode;
+  let touchEnabled = true;
   let musicEnabled = true;
   let soundEnabled = true;
   let audioCtx = null;
+  let targetPressFx = [0, 0, 0, 0, 0];
 
   bgm.volume = 0.35;
 
@@ -79,11 +82,28 @@
   }
 
   const targets = [
-    { key: "1", label: "2001:db8:1::/64", prefix: "2001:db8:1::/64", rect: { x: 30, y: TARGET_Y, w: 170, h: 78 } },
-    { key: "2", label: "2001:db8:2::/64", prefix: "2001:db8:2::/64", rect: { x: 220, y: TARGET_Y, w: 170, h: 78 } },
-    { key: "3", label: "ff02::1", prefix: "ff02::1/128", rect: { x: 410, y: TARGET_Y, w: 170, h: 78 } },
-    { key: "4", label: "Fehlversuch", prefix: null, rect: { x: 600, y: TARGET_Y, w: 170, h: 78 } }
+    { key: "1", label: "2001:db8:1::/64", prefix: "2001:db8:1::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
+    { key: "2", label: "2001:db8:2::/64", prefix: "2001:db8:2::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
+    { key: "3", label: "2a10:42:3::/64", prefix: "2a10:42:3::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
+    { key: "4", label: "ff02::1", prefix: "ff02::1/128", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
+    { key: "5", label: "Fehlversuch", prefix: null, rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } }
   ];
+
+  function layoutTargets() {
+    const availableWidth = GAME_W - TARGET_MARGIN_X * 2;
+    const slotWidth = (availableWidth - TARGET_GAP * (targets.length - 1)) / targets.length;
+    for (let i = 0; i < targets.length; i += 1) {
+      targets[i].rect.x = TARGET_MARGIN_X + i * (slotWidth + TARGET_GAP);
+      targets[i].rect.y = TARGET_Y;
+      targets[i].rect.w = slotWidth;
+      targets[i].rect.h = 78;
+    }
+  }
+
+  function flashTargetPress(index) {
+    if (index < 0 || index >= targets.length) return;
+    targetPressFx[index] = performance.now() + 220;
+  }
 
   function initAudio() {
     if (!audioCtx) {
@@ -273,9 +293,44 @@
   function generatePacketAddress() {
     const roll = Math.random();
 
-    if (roll < 0.42) return randomIPv6FromPrefix("2001:db8:1::/64");
-    if (roll < 0.84) return randomIPv6FromPrefix("2001:db8:2::/64");
-    if (roll < 0.93) return "ff02::1";
+    // Level 5+: increase route-4 and route-5 pressure.
+    if (level >= 5) {
+      if (roll < 0.22) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
+      if (roll < 0.44) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
+      if (roll < 0.62) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
+      if (roll < 0.7) return { address: "ff0e::1", acceptedTargets: [0, 1] };
+      if (roll < 0.84) return { address: "ff02::1" };
+      let invalidAddr = "";
+      do {
+        invalidAddr = ["2001", "0db8", "9", randomHex(0x0fff), randomHex(), randomHex(), randomHex(), randomHex()]
+          .map((g) => g.padStart(4, "0"))
+          .join(":")
+          .replace(/(^|:)0{1,3}/g, "$1");
+      } while (findBestTargetIndex(invalidAddr) !== -1);
+      return { address: invalidAddr };
+    }
+
+    // Level 3+: add ff0e::1 packets that can be routed to 1 or 2.
+    if (level >= 3) {
+      if (roll < 0.3) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
+      if (roll < 0.58) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
+      if (roll < 0.78) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
+      if (roll < 0.86) return { address: "ff0e::1", acceptedTargets: [0, 1] };
+      if (roll < 0.93) return { address: "ff02::1" };
+      let invalidAddr = "";
+      do {
+        invalidAddr = ["2001", "0db8", "9", randomHex(0x0fff), randomHex(), randomHex(), randomHex(), randomHex()]
+          .map((g) => g.padStart(4, "0"))
+          .join(":")
+          .replace(/(^|:)0{1,3}/g, "$1");
+      } while (findBestTargetIndex(invalidAddr) !== -1);
+      return { address: invalidAddr };
+    }
+
+    if (roll < 0.3) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
+    if (roll < 0.6) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
+    if (roll < 0.82) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
+    if (roll < 0.92) return { address: "ff02::1" };
 
     let addr = "";
     do {
@@ -285,13 +340,14 @@
         .replace(/(^|:)0{1,3}/g, "$1");
     } while (findBestTargetIndex(addr) !== -1);
 
-    return addr;
+    return { address: addr };
   }
 
   function spawnPacket() {
-    const address = generatePacketAddress();
+    const packetData = generatePacketAddress();
+    const address = packetData.address;
     const correctTarget = findBestTargetIndex(address);
-    const ttl = Math.max(2.3, 6.6 - level * 0.35);
+    const ttl = Math.max(3.9, 12.1 - level * 0.32);
 
     const packetW = 260;
     packets.push({
@@ -301,9 +357,10 @@
       w: packetW,
       h: 44,
       address,
+      acceptedTargets: packetData.acceptedTargets || null,
       timeLeft: ttl,
       maxTime: ttl,
-      speed: 26 + level * 7 + Math.random() * 8,
+      speed: 31 + level * 7.8 + Math.random() * 8.5,
       correctTarget,
       spawnedAt: packetId++
     });
@@ -329,7 +386,7 @@
     startOverlay.classList.add("hidden");
     endOverlay.classList.add("hidden");
     helpOverlay.classList.add("hidden");
-    addToast("Route aktiv. Nutze Drag oder 1-4.", neon, 1.8);
+    addToast("Route aktiv. Drücke 1-5 für das aktive Paket.", neon, 1.8);
   }
 
   function openHelp() {
@@ -390,13 +447,23 @@
 
   function resolvePacketToTarget(packet, targetIndex) {
     const target = targets[targetIndex];
+    flashTargetPress(targetIndex);
 
     if (!target) {
       scoreMiss(packet, "Unbekanntes Ziel.");
       return;
     }
 
-    if (targetIndex === 3) {
+    if (Array.isArray(packet.acceptedTargets)) {
+      if (packet.acceptedTargets.includes(targetIndex)) {
+        scoreHit(packet, target);
+      } else {
+        scoreMiss(packet, "Sonderpaket: Hier sind nur Route 1 oder 2 gueltig.");
+      }
+      return;
+    }
+
+    if (targetIndex === 4) {
       if (packet.correctTarget === -1) {
         score += 5;
         correctHits += 1;
@@ -487,17 +554,23 @@
 
   function handleKeyRoute(index) {
     if (!running) return;
-    if (index < 0 || index > 3) return;
+    if (index < 0 || index > 4) return;
     if (packets.length === 0) return;
 
-    // Route the oldest visible packet when keyboard is used.
+    const chosen = getPriorityPacket();
+    if (!chosen) return;
+
+    resolvePacketToTarget(chosen, index);
+    removePacket(chosen.id);
+  }
+
+  function getPriorityPacket() {
+    if (packets.length === 0) return null;
     let chosen = packets[0];
     for (let i = 1; i < packets.length; i += 1) {
       if (packets[i].spawnedAt < chosen.spawnedAt) chosen = packets[i];
     }
-
-    resolvePacketToTarget(chosen, index);
-    removePacket(chosen.id);
+    return chosen;
   }
 
   function drawBackground(t) {
@@ -538,18 +611,25 @@
   }
 
   function drawTargets() {
+    layoutTargets();
+    const now = performance.now();
     for (let i = 0; i < targets.length; i += 1) {
       const t = targets[i];
       const r = t.rect;
       const hover = pointer.x >= r.x && pointer.x <= r.x + r.w && pointer.y >= r.y && pointer.y <= r.y + r.h;
-      const isFail = i === 3;
+      const isFail = i === 4;
+      const isMulticast = i === 3;
+      const isPressed = targetPressFx[i] > now;
 
       ctx.save();
-      ctx.fillStyle = isFail ? "rgba(255, 76, 138, 0.14)" : "rgba(40, 215, 255, 0.12)";
-      ctx.strokeStyle = hover ? "rgba(255, 255, 255, 0.95)" : isFail ? "rgba(255, 76, 138, 0.8)" : "rgba(40, 215, 255, 0.8)";
-      ctx.lineWidth = hover ? 2.5 : 1.5;
-      ctx.shadowColor = isFail ? "rgba(255, 76, 138, 0.5)" : "rgba(40, 215, 255, 0.55)";
-      ctx.shadowBlur = 12;
+      ctx.fillStyle = isFail ? "rgba(255, 76, 138, 0.14)" : isMulticast ? "rgba(255, 166, 77, 0.16)" : "rgba(40, 215, 255, 0.12)";
+      if (isPressed) {
+        ctx.fillStyle = isFail ? "rgba(255, 76, 138, 0.3)" : isMulticast ? "rgba(255, 166, 77, 0.34)" : "rgba(89, 255, 154, 0.28)";
+      }
+      ctx.strokeStyle = hover || isPressed ? "rgba(255, 255, 255, 0.95)" : isFail ? "rgba(255, 76, 138, 0.8)" : isMulticast ? "rgba(255, 166, 77, 0.9)" : "rgba(40, 215, 255, 0.8)";
+      ctx.lineWidth = hover || isPressed ? 2.5 : 1.5;
+      ctx.shadowColor = isFail ? "rgba(255, 76, 138, 0.5)" : isMulticast ? "rgba(255, 166, 77, 0.6)" : "rgba(40, 215, 255, 0.55)";
+      ctx.shadowBlur = isPressed ? 22 : 12;
       ctx.beginPath();
       ctx.roundRect(r.x, r.y, r.w, r.h, 10);
       ctx.fill();
@@ -561,33 +641,50 @@
       ctx.fillText(`[${t.key}] ${t.label}`, r.x + 10, r.y + 30);
       ctx.font = "12px Trebuchet MS";
       ctx.fillStyle = "rgba(231, 247, 255, 0.78)";
-      ctx.fillText(isFail ? "Unsichere Pakete" : "Route hierhin", r.x + 10, r.y + 52);
+      const subtitle = i <= 2 ? "Broadcast: ff02::1" : i === 3 ? "Link-Local Multicast" : "Block ungültige Pakete";
+      ctx.fillText(subtitle, r.x + 10, r.y + 52);
       ctx.restore();
     }
   }
 
   function drawPackets() {
+    const priorityPacket = getPriorityPacket();
+    const priorityId = priorityPacket ? priorityPacket.id : -1;
+
     for (let i = 0; i < packets.length; i += 1) {
       const p = packets[i];
       const timerRatio = Math.max(0, p.timeLeft / p.maxTime);
       const timerColor = timerRatio > 0.45 ? okColor : timerRatio > 0.2 ? "#ffd166" : badColor;
+      const isPriority = p.id === priorityId;
 
       ctx.save();
       ctx.fillStyle = "rgba(15, 25, 48, 0.92)";
-      ctx.strokeStyle = "rgba(40, 215, 255, 0.9)";
-      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = isPriority ? "rgba(255, 209, 102, 0.95)" : "rgba(40, 215, 255, 0.9)";
+      ctx.lineWidth = isPriority ? 2.2 : 1.4;
       ctx.shadowColor = "rgba(40, 215, 255, 0.55)";
-      ctx.shadowBlur = draggingPacket && draggingPacket.id === p.id ? 22 : 12;
+      ctx.shadowBlur = draggingPacket && draggingPacket.id === p.id ? 22 : isPriority ? 18 : 12;
       ctx.beginPath();
       ctx.roundRect(p.x, p.y, p.w, p.h, 8);
       ctx.fill();
       ctx.stroke();
 
+      if (isPriority) {
+        ctx.fillStyle = "rgba(255, 209, 102, 0.2)";
+        ctx.fillRect(p.x + 1, p.y + 1, p.w - 2, 10);
+      }
+
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#e7f7ff";
       ctx.font = "12px Consolas, monospace";
-      const text = p.address.length > 42 ? `${p.address.slice(0, 42)}…` : p.address;
+      const label = p.acceptedTargets ? `${p.address} [1|2]` : p.address;
+      const text = label.length > 42 ? `${label.slice(0, 42)}…` : label;
       ctx.fillText(text, p.x + 8, p.y + 19);
+
+      if (isPriority) {
+        ctx.fillStyle = "#ffd166";
+        ctx.font = "bold 10px Trebuchet MS";
+        ctx.fillText("AKTIV", p.x + p.w - 38, p.y + 10);
+      }
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
       ctx.fillRect(p.x + 8, p.y + 28, p.w - 16, 9);
@@ -641,9 +738,16 @@
   }
 
   function drawHUD() {
+    const levelBaseScore = (level - 1) * 50;
+    const nextLevelScore = level * 50;
+    const levelProgress = Math.max(0, score - levelBaseScore);
+    const levelTarget = 50;
+    const levelProgressRatio = Math.max(0, Math.min(1, levelProgress / levelTarget));
+    const pointsToNextLevel = Math.max(0, nextLevelScore - score);
+
     ctx.save();
     ctx.fillStyle = "rgba(6, 12, 24, 0.65)";
-    ctx.fillRect(0, 0, GAME_W, 42);
+    ctx.fillRect(0, 0, GAME_W, 58);
 
     ctx.fillStyle = "#e7f7ff";
     ctx.font = "bold 18px Trebuchet MS";
@@ -657,8 +761,23 @@
     ctx.fillStyle = "#ff93b7";
     ctx.fillText(`Falsch: ${wrongHits}`, 700, 27);
 
-    ctx.font = "12px Trebuchet MS";
-    ctx.fillStyle = "rgba(231, 247, 255, 0.75)";
+    const barX = 14;
+    const barY = 38;
+    const barW = GAME_W - 28;
+    const barH = 12;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = "rgba(255, 209, 102, 0.9)";
+    ctx.fillRect(barX, barY, barW * levelProgressRatio, barH);
+
+    ctx.font = "bold 11px Trebuchet MS";
+    ctx.fillStyle = "#fff7d6";
+    ctx.fillText(
+      `Nächstes Level in ${pointsToNextLevel} Punkten (${levelProgress}/${levelTarget})`,
+      barX + 8,
+      barY + 10
+    );
     ctx.restore();
   }
 
@@ -802,7 +921,7 @@
     }
 
     tryStartMusic();
-    if (["1", "2", "3", "4"].includes(ev.key)) {
+    if (["1", "2", "3", "4", "5"].includes(ev.key)) {
       handleKeyRoute(Number(ev.key) - 1);
     }
     if (ev.key.toLowerCase() === "m") {
@@ -826,6 +945,7 @@
   }
 
   addToast("Willkommen bei ipv6gg", neon, 2.0);
+  layoutTargets();
   window.addEventListener("pointerdown", tryStartMusic, { passive: true });
   window.addEventListener("touchstart", tryStartMusic, { passive: true });
   syncMusicButton();

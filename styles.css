@@ -289,7 +289,9 @@ body {
 .controls {
   position: fixed;
   top: calc(12px + env(safe-area-inset-top, 0px));
-  right: calc(12px + env(safe-area-inset-right, 0px));
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   display: flex;
   gap: 8px;
   z-index: 5;
@@ -311,15 +313,15 @@ body {
 
 .mobile-buttons {
   position: absolute;
-  bottom: -100px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: -92px;
+  left: 18px;
+  transform: none;
   display: none !important;
-  gap: 12px;
+  gap: 10px;
   z-index: 5;
   flex-wrap: nowrap;
   justify-content: center;
-  width: 100%;
+  width: calc(100% - 36px);
   pointer-events: auto;
 }
 
@@ -332,12 +334,13 @@ body {
   border-radius: 10px;
   background: rgba(8, 20, 36, 0.92);
   color: var(--neon);
-  padding: 14px 22px;
-  font-size: 16px;
+  flex: 1 1 0;
+  padding: 14px 0;
+  font-size: 17px;
   font-weight: bold;
   cursor: pointer;
-  min-width: 56px;
-  min-height: 56px;
+  min-width: 0;
+  min-height: 60px;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
@@ -367,5 +370,15 @@ body {
 
   .help-panel {
     max-height: 76vh;
+  }
+
+  .mobile-buttons {
+    bottom: -86px;
+    gap: 8px;
+  }
+
+  .mobile-btn {
+    font-size: 16px;
+    min-height: 56px;
   }
 }

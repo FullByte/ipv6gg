@@ -18,7 +18,7 @@
       <div class="controls">
         <button id="musicBtn" aria-label="Musik umschalten">Music: On</button>
         <button id="soundBtn" aria-label="Effekte umschalten">Effekte: On</button>
-        <button id="touchBtn" aria-label="Touch-Buttons umschalten">Touch: Off</button>
+        <button id="touchBtn" aria-label="Touch-Buttons umschalten">Touch: On</button>
         <button id="helpBtn" aria-label="Spielhilfe anzeigen">Hilfe</button>
       </div>
 
@@ -27,6 +27,7 @@
         <button class="mobile-btn" data-route="1" aria-label="Route 2">2</button>
         <button class="mobile-btn" data-route="2" aria-label="Route 3">3</button>
         <button class="mobile-btn" data-route="3" aria-label="Route 4">4</button>
+        <button class="mobile-btn" data-route="4" aria-label="Route 5">5</button>
       </div>
 
       <audio id="bgm" src="ipv6-track1.mp3" loop preload="auto"></audio>
@@ -35,7 +36,7 @@
         <div class="panel">
           <h1>ipv6gg</h1>
           <p>Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.</p>
-          <p>Route per Tasten <strong>1-4</strong>, oder <strong>mobilen Buttons</strong> zum passenden Ziel.</p>
+          <p>Route per Tasten <strong>1-5</strong>, oder <strong>mobilen Buttons</strong> zum passenden Ziel.</p>
           <p><strong>Lernhinweis:</strong> Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>
           <p>Richtig: +10 Punkte | Falsch/Timeout: -1 Leben | 3 Leben gesamt.</p>
           <button id="startBtn">Spiel starten</button>
@@ -57,11 +58,16 @@
           <p>Du spielst einen Router und musst jedes einfliegende IPv6-Paket an das richtige Zielnetz schicken, bevor seine Zeit abläuft.</p>
           <ul>
             <li><strong>Ziel:</strong> Möglichst viele Pakete korrekt routen und den Highscore steigern.</li>
-            <li><strong>Steuerung:</strong> Tasten <strong>1-4</strong> oder Paket mit Drag and Drop auf eine Route ziehen.</li>
-            <li><strong>Touch-Steuerung:</strong> Mit <strong>Touch: On</strong> erscheinen die großen 1-4 Buttons unter dem Spielfeld.</li>
+            <li><strong>Steuerung:</strong> Tasten <strong>1-5</strong> oder Paket mit Drag and Drop auf eine Route ziehen.</li>
+            <li><strong>Touch-Steuerung:</strong> <strong>Touch</strong> ist standardmäßig aktiv. Die großen 1-5 Buttons liegen unter dem Spielfeld und können jederzeit ein/ausgeschaltet werden.</li>
             <li><strong>Regel:</strong> Es gilt Longest Prefix Match. Das spezifischste passende Präfix gewinnt.</li>
-            <li><strong>Routen:</strong> Route 1 und 2 sind /64-Netze, Route 3 ist exakt <code>ff02::1</code>, Route 4 ist für nicht zuordenbare Pakete.</li>
+            <li><strong>Routen:</strong> Route 1 und 2 sind /64-Netze, Route 3 ist <code>2a10:42:3::/64</code>, Route 4 ist <strong>Link-Local Multicast</strong> für <code>ff02::1</code>, Route 5 ist <strong>Block ungültige Pakete</strong> für nicht zuordenbare Ziele.</li>
+            <li><strong>Broadcast-Hinweis:</strong> Für die Optionen 1-3 wird als Broadcast-Ziel im Spiel <code>ff02::1</code> angezeigt.</li>
+            <li><strong>Ab Level 3:</strong> <code>ff0e::1</code> erscheint als Sonderpaket und darf auf <strong>Route 1 oder 2</strong> geroutet werden.</li>
+            <li><strong>Ab Level 5:</strong> Fälle für Route 4 und Route 5 kommen häufiger vor.</li>
+            <li><strong>Priorität:</strong> Das aktuell wichtigste Paket ist im Spielfeld als <strong>AKTIV</strong> markiert und sollte zuerst geroutet werden.</li>
             <li><strong>Punkte:</strong> Korrekte Route +10, korrekter Fehlversuch +5.</li>
+            <li><strong>Level-Schwellen:</strong> Level 2 ab 50 Punkten, Level 3 ab 100, Level 4 ab 150, Level 5 ab 200 (danach jeweils +50 Punkte pro Level).</li>
             <li><strong>Fehler:</strong> Falsche Route, Timeout oder verlorenes Paket kostet ein Leben.</li>
             <li><strong>Game Over:</strong> Bei 0 Leben endet die Runde, danach kannst du direkt neu starten.</li>
             <li><strong>Tipps:</strong> Kurze Präfixe sind allgemeiner, lange Präfixe sind genauer. Achte zuerst auf den Anfang des IPv6-Blocks.</li>
