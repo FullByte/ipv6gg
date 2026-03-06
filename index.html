@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ipv6gg</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="frame">
+      <canvas id="game" width="800" height="600"></canvas>
+
+      <div class="controls">
+        <button id="musicBtn" aria-label="Musik umschalten">Music: On</button>
+        <button id="soundBtn" aria-label="Sound umschalten">Sound: Off</button>
+      </div>
+
+      <div class="mobile-buttons" id="mobileButtons">
+        <button class="mobile-btn" data-route="0" aria-label="Route 1">1</button>
+        <button class="mobile-btn" data-route="1" aria-label="Route 2">2</button>
+        <button class="mobile-btn" data-route="2" aria-label="Route 3">3</button>
+        <button class="mobile-btn" data-route="3" aria-label="Route 4">4</button>
+      </div>
+
+      <audio id="bgm" src="ipv6-track1.mp3" loop preload="auto"></audio>
+
+      <div class="overlay" id="startOverlay">
+        <div class="panel">
+          <h1>ipv6gg</h1>
+          <p>Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.</p>
+          <p>Route per <strong>Drag-and-Drop</strong>, Tasten <strong>1-4</strong>, oder <strong>mobilen Buttons</strong> zum passenden Ziel.</p>
+          <p><strong>Lernhinweis:</strong> Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>
+          <p>Richtig: +10 Punkte | Falsch/Timeout: -1 Leben | 3 Leben gesamt.</p>
+          <button id="startBtn">Spiel starten</button>
+        </div>
+      </div>
+
+      <div class="overlay hidden" id="endOverlay">
+        <div class="panel">
+          <h2>Verbindung getrennt</h2>
+          <p id="endScoreText"></p>
+          <p id="endHighscoreText"></p>
+          <button id="playAgainBtn">Play Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
