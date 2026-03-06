@@ -19,7 +19,7 @@
 
   const GAME_W = 800;
   const GAME_H = 600;
-  const TARGET_Y = 500;
+  const TARGET_Y = 520;
   const TARGET_MARGIN_X = 18;
   const TARGET_GAP = 10;
   const STORAGE_KEY = "ipv6gg_highscore";
@@ -35,6 +35,7 @@
   let level = 1;
   let score = 0;
   let lives = 3;
+  let comboStreak = 0;
   let correctHits = 0;
   let wrongHits = 0;
   let highscore = Number(localStorage.getItem(STORAGE_KEY) || 0);
@@ -50,6 +51,56 @@
   let audioCtx = null;
   let targetPressFx = [0, 0, 0, 0, 0];
 
+  const COMBO_BONUS = 10;
+
+  function emitShaderCombo(label, streak, tone = "combo") {
+    window.dispatchEvent(
+      new CustomEvent("ipv6gg:combo", {
+        detail: { label, streak, tone }
+      })
+    );
+  }
+
+  function emitShaderLevelUp(nextLevel) {
+    window.dispatchEvent(
+      new CustomEvent("ipv6gg:levelup", {
+        detail: { level: nextLevel }
+      })
+    );
+  }
+
+  function logScoreProgress(context = "update") {
+    const levelBaseScore = (level - 1) * 100;
+    const progressInLevel = Math.max(0, score - levelBaseScore);
+    const pointsToNextLevel = Math.max(0, level * 100 - score);
+    console.log(
+      `[Score][${context}] score=${score} level=${level} progress=${progressInLevel}/100 toNext=${pointsToNextLevel} lives=${lives} combo=${comboStreak}`
+    );
+  }
+
+  function awardComboBonus(packet, tone = "combo") {
+    if (comboStreak < 3) return;
+    score += COMBO_BONUS;
+    playComboSignatureSound(comboStreak, tone);
+    const centerX = packet.x + packet.w / 2;
+    const centerY = packet.y + packet.h / 2;
+    createParticles(centerX, centerY, "#6fd6ff");
+    addToast(`Kombo +${COMBO_BONUS}`, "#9de8ff", 1.8);
+
+    if (comboStreak === 3) {
+      emitShaderCombo("KOMBO", comboStreak, tone);
+      addToast("KOMBO!", "#7fdfff", 2.2);
+    } else if (comboStreak === 5) {
+      emitShaderCombo("MEGA KOMBO", comboStreak, "mega");
+      addToast("MEGA KOMBO!", "#ffd166", 2.4);
+    } else if (comboStreak === 10) {
+      emitShaderCombo("GUTER ROUTER", comboStreak, "router");
+      addToast("GUTER ROUTER!", "#ffb86c", 2.6);
+    } else {
+      emitShaderCombo(`KOMBO x${comboStreak}`, comboStreak, tone);
+    }
+  }
+
   bgm.volume = 0.35;
 
   function tryStartMusic() {
@@ -63,15 +114,15 @@
   }
 
   function syncMusicButton() {
-    musicBtn.textContent = `Music: ${musicEnabled ? "On" : "Off"}`;
+    musicBtn.textContent = `[M]usic: ${musicEnabled ? "On" : "Off"}`;
   }
 
   function syncSoundButton() {
-    soundBtn.textContent = `Effekte: ${soundEnabled ? "On" : "Off"}`;
+    soundBtn.textContent = `[E]ffekte: ${soundEnabled ? "On" : "Off"}`;
   }
 
   function syncTouchButton() {
-    touchBtn.textContent = `Touch: ${touchEnabled ? "On" : "Off"}`;
+    touchBtn.textContent = `[T]ouch: ${touchEnabled ? "On" : "Off"}`;
     if (mobileButtons) {
       if (touchEnabled) {
         mobileButtons.classList.add("touch-enabled");
@@ -82,11 +133,11 @@
   }
 
   const targets = [
-    { key: "1", label: "2001:db8:1::/64", prefix: "2001:db8:1::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
-    { key: "2", label: "2001:db8:2::/64", prefix: "2001:db8:2::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
-    { key: "3", label: "2a10:42:3::/64", prefix: "2a10:42:3::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
-    { key: "4", label: "ff02::1", prefix: "ff02::1/128", rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } },
-    { key: "5", label: "Fehlversuch", prefix: null, rect: { x: 0, y: TARGET_Y, w: 0, h: 78 } }
+    { key: "1", label: "2001:db8:1::/64", prefix: "2001:db8:1::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 64 } },
+    { key: "2", label: "2001:db8:2::/64", prefix: "2001:db8:2::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 64 } },
+    { key: "3", label: "2a10:42:3::/64", prefix: "2a10:42:3::/64", rect: { x: 0, y: TARGET_Y, w: 0, h: 64 } },
+    { key: "4", label: "ff02::1", prefix: "ff02::1/128", rect: { x: 0, y: TARGET_Y, w: 0, h: 64 } },
+    { key: "5", label: "Fehlversuch", prefix: null, rect: { x: 0, y: TARGET_Y, w: 0, h: 64 } }
   ];
 
   function layoutTargets() {
@@ -96,7 +147,7 @@
       targets[i].rect.x = TARGET_MARGIN_X + i * (slotWidth + TARGET_GAP);
       targets[i].rect.y = TARGET_Y;
       targets[i].rect.w = slotWidth;
-      targets[i].rect.h = 78;
+      targets[i].rect.h = 64;
     }
   }
 
@@ -141,11 +192,12 @@
 
   function playLevelUpSound() {
     playChiptune([
-      { freq: 523, dur: 0.09, vol: 0.115 },
-      { freq: 659, dur: 0.09, vol: 0.115 },
-      { freq: 784, dur: 0.09, vol: 0.12 },
-      { freq: 1047, dur: 0.15, vol: 0.13 }
-    ], 0.095);
+      { freq: 392, dur: 0.07, vol: 0.11, type: "square" },
+      { freq: 494, dur: 0.07, vol: 0.115, type: "square" },
+      { freq: 659, dur: 0.08, vol: 0.12, type: "square" },
+      { freq: 784, dur: 0.08, vol: 0.125, type: "square" },
+      { freq: 988, dur: 0.11, vol: 0.13, type: "square" }
+    ], 0.058);
   }
 
   function playGameOverSound() {
@@ -156,6 +208,31 @@
       { freq: 196, dur: 0.25, type: "sawtooth", vol: 0.15 },
       { freq: 98, dur: 0.35, type: "square", vol: 0.11 }
     ], 0.12);
+  }
+
+  function playComboSignatureSound(streak, tone = "combo") {
+    if (!soundEnabled) return;
+    if (tone === "router" || streak >= 10) {
+      playChiptune([
+        { freq: 659, dur: 0.07, vol: 0.12 },
+        { freq: 784, dur: 0.07, vol: 0.12 },
+        { freq: 988, dur: 0.08, vol: 0.13 },
+        { freq: 1175, dur: 0.11, vol: 0.14 }
+      ], 0.06);
+      return;
+    }
+    if (tone === "mega" || streak >= 5) {
+      playChiptune([
+        { freq: 587, dur: 0.07, vol: 0.11 },
+        { freq: 740, dur: 0.08, vol: 0.12 },
+        { freq: 932, dur: 0.1, vol: 0.13 }
+      ], 0.06);
+      return;
+    }
+    playChiptune([
+      { freq: 523, dur: 0.06, vol: 0.1 },
+      { freq: 659, dur: 0.08, vol: 0.11 }
+    ], 0.055);
   }
 
   function addToast(text, color = neon, life = 1.2) {
@@ -299,7 +376,7 @@
       if (roll < 0.22) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
       if (roll < 0.44) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
       if (roll < 0.62) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
-      if (roll < 0.7) return { address: "ff0e::1", acceptedTargets: [0, 1] };
+      if (roll < 0.7) return { address: "ff0e::1", acceptedTargets: [0, 1, 2] };
       if (roll < 0.84) return { address: "ff02::1" };
       let invalidAddr = "";
       do {
@@ -316,7 +393,7 @@
       if (roll < 0.3) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
       if (roll < 0.58) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
       if (roll < 0.78) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
-      if (roll < 0.86) return { address: "ff0e::1", acceptedTargets: [0, 1] };
+      if (roll < 0.86) return { address: "ff0e::1", acceptedTargets: [0, 1, 2] };
       if (roll < 0.93) return { address: "ff02::1" };
       let invalidAddr = "";
       do {
@@ -374,6 +451,7 @@
     level = 1;
     score = 0;
     lives = 3;
+    comboStreak = 0;
     correctHits = 0;
     wrongHits = 0;
     spawnTimer = 0;
@@ -412,28 +490,35 @@
   }
 
   function levelCheck() {
-    const targetLevel = Math.floor(score / 50) + 1;
-    if (targetLevel > level) {
-      level = targetLevel;
+    const targetLevel = Math.floor(score / 100) + 1;
+    while (targetLevel > level) {
+      level += 1;
+      lives += 1;
       addToast(`Level ${level}: Mehr Traffic im Netz!`, "#ffd166", 1.4);
+      addToast("Level Up Bonus: +1 Leben", "#a7ff8a", 1.2);
       playLevelUpSound();
       triggerImpact("levelup");
+      emitShaderLevelUp(level);
     }
   }
 
   function scoreHit(packet, target) {
     score += 10;
     correctHits += 1;
+    comboStreak += 1;
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, okColor);
     addToast(`Praefix match! -> ${target.label}`, okColor, 3.5);
     triggerImpact("ok");
     beep(740, 0.09, "square", 0.108);
     beep(1080, 0.08, "square", 0.09);
+    awardComboBonus(packet);
     levelCheck();
+    logScoreProgress(`hit:${target.key}`);
   }
 
   function scoreMiss(packet, reason) {
     lives -= 1;
+    comboStreak = 0;
     wrongHits += 1;
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, badColor);
     addToast(reason, badColor, 3.8);
@@ -441,6 +526,7 @@
     beep(210, 0.18, "sawtooth", 0.114);
     beep(105, 0.25, "square", 0.095);
     beep(75, 0.28, "triangle", 0.09);
+    logScoreProgress("miss");
     if (lives <= 0) {
       endGame();
     }
@@ -459,7 +545,7 @@
       if (packet.acceptedTargets.includes(targetIndex)) {
         scoreHit(packet, target);
       } else {
-        scoreMiss(packet, "Sonderpaket: Hier sind nur Route 1 oder 2 gueltig.");
+        scoreMiss(packet, "Sonderpaket: Hier sind nur Route 1, 2 oder 3 gueltig.");
       }
       return;
     }
@@ -468,11 +554,14 @@
       if (packet.correctTarget === -1) {
         score += 5;
         correctHits += 1;
+        comboStreak += 1;
         addToast("Fehlversuch korrekt isoliert (+5)", "#7dffc1", 3.2);
         createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, "#7dffc1");
         triggerImpact("ok");
         beep(560, 0.08, "square", 0.09);
+        awardComboBonus(packet, "isolate");
         levelCheck();
+        logScoreProgress("isolate");
       } else {
         scoreMiss(packet, "Falsch: Paket haette geroutet werden koennen.");
       }
@@ -642,7 +731,7 @@
       ctx.fillText(`[${t.key}] ${t.label}`, r.x + 10, r.y + 30);
       ctx.font = "12px Trebuchet MS";
       ctx.fillStyle = "rgba(231, 247, 255, 0.78)";
-      const subtitle = i <= 2 ? "Broadcast: ff02::1" : i === 3 ? "Link-Local Multicast" : "Block ungültige Pakete";
+      const subtitle = i <= 2 ? "Broadcast: ff0e::1" : i === 3 ? "Link-Local Multicast" : "Block ungültige Pakete";
       ctx.fillText(subtitle, r.x + 10, r.y + 52);
       ctx.restore();
     }
@@ -677,7 +766,7 @@
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#e7f7ff";
       ctx.font = "12px Consolas, monospace";
-      const label = p.acceptedTargets ? `${p.address} [1|2]` : p.address;
+      const label = p.address;
       const text = label.length > 42 ? `${label.slice(0, 42)}…` : label;
       ctx.fillText(text, p.x + 8, p.y + 19);
 
@@ -739,12 +828,13 @@
   }
 
   function drawHUD() {
-    const levelBaseScore = (level - 1) * 50;
-    const nextLevelScore = level * 50;
+    const levelBaseScore = (level - 1) * 100;
+    const nextLevelScore = level * 100;
     const levelProgress = Math.max(0, score - levelBaseScore);
-    const levelTarget = 50;
+    const levelTarget = 100;
     const levelProgressRatio = Math.max(0, Math.min(1, levelProgress / levelTarget));
     const pointsToNextLevel = Math.max(0, nextLevelScore - score);
+    const comboMultiplier = comboStreak >= 5 ? 2.0 : comboStreak >= 3 ? 1.5 : 1.0;
 
     ctx.save();
     ctx.fillStyle = "rgba(6, 12, 24, 0.65)";
@@ -761,6 +851,14 @@
     ctx.fillText(`Richtig: ${correctHits}`, 610, 27);
     ctx.fillStyle = "#ff93b7";
     ctx.fillText(`Falsch: ${wrongHits}`, 700, 27);
+    if (comboStreak >= 3) {
+      ctx.fillStyle = "#9de8ff";
+      ctx.font = "bold 13px Trebuchet MS";
+      ctx.fillText(`KOMBO x${comboStreak}`, 610, 47);
+    }
+    ctx.fillStyle = comboMultiplier > 1 ? "#ffd166" : "rgba(231, 247, 255, 0.72)";
+    ctx.font = "bold 12px Trebuchet MS";
+    ctx.fillText(`Bonus x${comboMultiplier.toFixed(1)}`, 700, 47);
 
     const barX = 14;
     const barY = 38;
@@ -925,8 +1023,27 @@
     if (["1", "2", "3", "4", "5"].includes(ev.key)) {
       handleKeyRoute(Number(ev.key) - 1);
     }
-    if (ev.key.toLowerCase() === "m") {
+    const key = ev.key.toLowerCase();
+    const code = ev.code;
+    if (key === "m" || code === "KeyM") {
+      ev.preventDefault();
+      musicBtn.click();
+    }
+    if (key === "e" || code === "KeyE") {
+      ev.preventDefault();
       soundBtn.click();
+    }
+    if (key === "t" || code === "KeyT") {
+      ev.preventDefault();
+      touchBtn.click();
+    }
+    if (key === "h" || code === "KeyH") {
+      ev.preventDefault();
+      if (helpOverlay.classList.contains("hidden")) {
+        openHelp();
+      } else {
+        closeHelp();
+      }
     }
   });
 
@@ -952,6 +1069,7 @@
   syncMusicButton();
   syncSoundButton();
   syncTouchButton();
+  helpBtn.textContent = "[H]ilfe";
   requestAnimationFrame((ts) => {
     lastTime = ts;
     gameLoop(ts);

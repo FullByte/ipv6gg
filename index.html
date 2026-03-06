@@ -12,14 +12,15 @@
       <div id="shaderRoot" class="shader-layer" aria-hidden="true"></div>
       <div id="shaderStatus" class="shader-status" role="status" aria-live="polite"></div>
       <div id="shaderEffectMode" class="shader-effect" aria-live="polite"></div>
+      <div id="shaderComboBanner" class="shader-combo-banner" aria-live="polite" aria-atomic="true"></div>
       <div id="impactFlash" class="impact-flash" aria-hidden="true"></div>
       <canvas id="game" width="800" height="600"></canvas>
 
       <div class="controls">
-        <button id="musicBtn" aria-label="Musik umschalten">Music: On</button>
-        <button id="soundBtn" aria-label="Effekte umschalten">Effekte: On</button>
-        <button id="touchBtn" aria-label="Touch-Buttons umschalten">Touch: On</button>
-        <button id="helpBtn" aria-label="Spielhilfe anzeigen">Hilfe</button>
+        <button id="musicBtn" aria-label="Musik umschalten">[M]usic: On</button>
+        <button id="soundBtn" aria-label="Effekte umschalten">[E]ffekte: On</button>
+        <button id="touchBtn" aria-label="Touch-Buttons umschalten">[T]ouch: On</button>
+        <button id="helpBtn" aria-label="Spielhilfe anzeigen">[H]ilfe</button>
       </div>
 
       <div class="mobile-buttons" id="mobileButtons">
@@ -38,7 +39,7 @@
           <p>Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.</p>
           <p>Route per Tasten <strong>1-5</strong>, oder <strong>Buttons</strong> (Touch=on) zum passenden Ziel.</p>
           <p>Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>          
-          <p>Richtig: +10 Punkte | Falsch/Timeout: -1 Leben (3 gesamt).</p>
+          <p>Richtig: +10 Punkte | Kombo (ab 3er-Serie): +10 extra pro weiterem Treffer | Falsch/Timeout: -1 Leben (3 gesamt).</p>
           <p>Weitere Details siehe "Hilfe"</p>
           <button id="startBtn">Spiel starten!</button>
         </div>
@@ -57,23 +58,13 @@
         <div class="panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
           <h2 id="helpTitle">So funktioniert ipv6gg</h2>
           <p>Du spielst einen Router und musst jedes einfliegende IPv6-Paket an das richtige Zielnetz schicken, bevor seine Zeit abläuft.</p>
-          <ul>
-            <li><strong>Ziel:</strong> Möglichst viele Pakete korrekt routen und den Highscore steigern.</li>
-            <li><strong>Steuerung:</strong> Tasten <strong>1-5</strong> oder Paket mit Drag and Drop auf eine Route ziehen.</li>
-            <li><strong>Touch-Steuerung:</strong> <strong>Touch</strong> ist standardmäßig aktiv. Die großen 1-5 Buttons liegen unter dem Spielfeld und können jederzeit ein/ausgeschaltet werden.</li>
-            <li><strong>Regel:</strong> Es gilt Longest Prefix Match. Das spezifischste passende Präfix gewinnt.</li>
-            <li><strong>Routen:</strong> Route 1 und 2 sind /64-Netze, Route 3 ist <code>2a10:42:3::/64</code>, Route 4 ist <strong>Link-Local Multicast</strong> für <code>ff02::1</code>, Route 5 ist <strong>Block ungültige Pakete</strong> für nicht zuordenbare Ziele.</li>
-            <li><strong>Broadcast-Hinweis:</strong> Für die Optionen 1-3 wird als Broadcast-Ziel im Spiel <code>ff02::1</code> angezeigt.</li>
-            <li><strong>Ab Level 3:</strong> <code>ff0e::1</code> erscheint als Sonderpaket und darf auf <strong>Route 1 oder 2</strong> geroutet werden.</li>
-            <li><strong>Ab Level 5:</strong> Fälle für Route 4 und Route 5 kommen häufiger vor.</li>
-            <li><strong>Priorität:</strong> Das aktuell wichtigste Paket ist im Spielfeld als <strong>AKTIV</strong> markiert und sollte zuerst geroutet werden.</li>
-            <li><strong>Punkte:</strong> Korrekte Route +10, korrekter Fehlversuch +5.</li>
-            <li><strong>Level-Schwellen:</strong> Level 2 ab 50 Punkten, Level 3 ab 100, Level 4 ab 150, Level 5 ab 200 (danach jeweils +50 Punkte pro Level).</li>
-            <li><strong>Fehler:</strong> Falsche Route, Timeout oder verlorenes Paket kostet ein Leben.</li>
-            <li><strong>Game Over:</strong> Bei 0 Leben endet die Runde, danach kannst du direkt neu starten.</li>
-            <li><strong>Tipps:</strong> Kurze Präfixe sind allgemeiner, lange Präfixe sind genauer. Achte zuerst auf den Anfang des IPv6-Blocks.</li>
-          </ul>
-          <p>Hotkeys: <strong>Enter</strong> startet das Spiel/Restart, <strong>M</strong> schaltet Effekte.</p>
+          <p><strong>Ziel:</strong> Route möglichst viele Pakete korrekt, um Score und Highscore zu steigern. <strong>Steuerung:</strong> Mit <strong>1-5</strong> oder Drag-and-Drop auf eine Route; <strong>Touch</strong> ist standardmäßig aktiv, die großen 1-5 Buttons unter dem Spielfeld lassen sich jederzeit ein/ausblenden.</p>
+          <p><strong>Regel:</strong> Longest Prefix Match gewinnt, also immer das spezifischste passende Präfix. <strong>Routen:</strong> Route 1 und 2 sind /64-Netze, Route 3 ist <code>2a10:42:3::/64</code>, Route 4 ist <strong>Link-Local Multicast</strong> für <code>ff02::1</code>, Route 5 blockt ungültige, nicht zuordenbare Ziele; als Merkhilfe steht bei Route 1-3 im UI zusätzlich <code>Broadcast: ff02::1</code>.</p>
+          <p><strong>Sonderfälle:</strong> Ab Level 3 erscheint <code>ff0e::1</code> und darf auf <strong>Route 1, 2 oder 3</strong>; ab Level 5 treten Fälle für Route 4 und 5 häufiger auf. Das wichtigste Paket ist als <strong>AKTIV</strong> markiert, und Tasten <strong>1-5</strong> wirken immer auf dieses Paket.</p>
+          <p><strong>Punkte:</strong> Korrekte Route +10, korrekter Fehlversuch +5, dazu Kombo-Bonus ab 3 Richtigen in Folge: +10 pro weiterem Kombo-Treffer. <strong>Kombo-Stufen:</strong> 3 = <strong>KOMBO</strong>, 5 = <strong>MEGA KOMBO</strong>, 10 = <strong>GUTER ROUTER</strong>.</p>
+          <p><strong>Level:</strong> Das nächste Level kommt alle 100 Punkte (Level 2 ab 100, Level 3 ab 200, Level 4 ab 300, Level 5 ab 400, danach jeweils +100); pro Level-Up gibt es <strong>+1 Leben</strong>.</p>
+          <p><strong>Fehler:</strong> Falsche Route, Timeout oder verlorenes Paket kostet ein Leben. <strong>Game Over:</strong> Bei 0 Leben endet die Runde, danach kannst du sofort neu starten. <strong>Tipp:</strong> Kurze Präfixe sind allgemeiner, lange präziser; achte zuerst auf den Anfang des IPv6-Blocks.</p>
+          <p>Hotkeys: <strong>Enter</strong> startet Spiel/Restart, <strong>M</strong> Music, <strong>E</strong> Effekte, <strong>T</strong> Touch, <strong>H</strong> Hilfe, <strong>Esc</strong> schließt die Hilfe.</p>
           <button id="closeHelpBtn">Verstanden</button>
         </div>
       </div>
