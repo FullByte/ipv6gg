@@ -1,11 +1,13 @@
 import React from "https://esm.sh/react@19.2.0";
 import { createRoot } from "https://esm.sh/react-dom@19.2.0/client";
-import { DitherPulseRing } from "https://esm.sh/@toriistudio/shader-ui@0.0.9?deps=react@19.2.0,react-dom@19.2.0";
+import { DitherPulseRing } from "https://esm.sh/@toriistudio/shader-ui@0.0.9?deps=react@19.2.0,react-dom@19.2.0,three@0.169.0";
 
 const DEFAULT_SHADER_CONFIG = {
   width: "100%",
   height: "100%",
   combineMode: "alphaOver",
+  ringColor: "#4599ff",
+  borderColor: "#4599ff",
   glyphDitherEnabled: true,
   noiseWarpRadius: 0.7,
   diffuseRadius: 0.2,
@@ -16,6 +18,21 @@ const DEFAULT_SHADER_CONFIG = {
   borderIntensity: 1.0,
   borderAlpha: 1.0,
   borderTonemap: true,
+};
+
+const PACKET_SHADER_EFFECTS = {
+  hit: {
+    kick: 0.2,
+    tint: "#59ff9a",
+  },
+  isolate: {
+    kick: 0.18,
+    tint: "#7dffc1",
+  },
+  miss: {
+    kick: 0.2,
+    tint: "#ff4c8a",
+  },
 };
 
 const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -46,13 +63,23 @@ let comboTimeout = null;
 let comboMessageTimeout = null;
 let comboBannerTimeout = null;
 let root = null;
+const shaderRootEl = document.getElementById("shaderRoot");
+const packetLayerState = {
+  strength: 0,
+  targetStrength: 0,
+  tint: "#59ff9a",
+};
+let packetLayerRaf = 0;
+const shaderRuntimeConfig = { ...DEFAULT_SHADER_CONFIG };
 
 function App() {
-  const color = comboRingColor || "#4599ff";
+  const color = comboRingColor || shaderRuntimeConfig.ringColor || "#4599ff";
+  const borderColor = comboRingColor || shaderRuntimeConfig.borderColor || color;
+
   const shaderConfig = {
-    ...DEFAULT_SHADER_CONFIG,
+    ...shaderRuntimeConfig,
     ringColor: color,
-    borderColor: color,
+    borderColor,
     noiseWarpEnabled: !useReducedEffects,
     noiseWarpStrength: useReducedEffects ? 0 : 0.1,
     diffuseEnabled: !useReducedEffects,
@@ -91,6 +118,64 @@ const setModeBadge = () => {
 const renderShader = () => {
   if (!root) return;
   root.render(React.createElement(App));
+};
+
+const applyPacketLayerStyles = () => {
+  if (!shaderRootEl) return;
+  const t = packetLayerState.strength * packetLayerState.strength;
+  if (t <= 0.0005) {
+    shaderRootEl.style.opacity = "1";
+    shaderRootEl.style.filter = "none";
+    return;
+  }
+
+  const brightness = 1 + t * 0.08;
+  const saturate = 1 + t * 0.2;
+  const glow = 2 + t * 10;
+  shaderRootEl.style.opacity = `${1 + t * 0.015}`;
+  shaderRootEl.style.filter = `brightness(${brightness}) saturate(${saturate}) drop-shadow(0 0 ${glow}px ${packetLayerState.tint})`;
+};
+
+const animatePacketLayerEffect = () => {
+  if (packetLayerRaf) return;
+
+  const tick = () => {
+    packetLayerState.targetStrength *= 0.93;
+    if (packetLayerState.targetStrength < 0.004) {
+      packetLayerState.targetStrength = 0;
+    }
+
+    packetLayerState.strength +=
+      (packetLayerState.targetStrength - packetLayerState.strength) * 0.22;
+    if (packetLayerState.strength < 0.002) {
+      packetLayerState.strength = 0;
+    }
+
+    applyPacketLayerStyles();
+
+    if (packetLayerState.strength <= 0 && packetLayerState.targetStrength <= 0) {
+      packetLayerRaf = 0;
+      return;
+    }
+
+    packetLayerRaf = window.requestAnimationFrame(tick);
+  };
+
+  packetLayerRaf = window.requestAnimationFrame(tick);
+};
+
+const applyPacketShaderEffect = (outcome) => {
+  const effect = PACKET_SHADER_EFFECTS[outcome];
+  if (!effect) return;
+
+  packetLayerState.tint = effect.tint;
+
+  const kick = useReducedEffects ? effect.kick * 0.7 : effect.kick;
+  const nextTarget = Math.max(packetLayerState.targetStrength, packetLayerState.strength) + kick;
+  packetLayerState.targetStrength = Math.min(0.45, nextTarget);
+
+  applyPacketLayerStyles();
+  animatePacketLayerEffect();
 };
 
 const showComboBadge = (text, tone = "combo") => {
@@ -170,6 +255,30 @@ window.addEventListener("ipv6gg:levelup", (event) => {
   }, 980);
 });
 
+window.addEventListener("ipv6gg:packet", (event) => {
+  const outcome = event?.detail?.outcome;
+  if (typeof outcome !== "string" || !outcome) return;
+  applyPacketShaderEffect(outcome);
+});
+
+window.ipv6ggShader = {
+  getConfig() {
+    return { ...shaderRuntimeConfig };
+  },
+  setConfig(patch) {
+    if (!patch || typeof patch !== "object") return;
+    Object.assign(shaderRuntimeConfig, patch);
+    renderShader();
+  },
+  resetConfig() {
+    Object.assign(shaderRuntimeConfig, DEFAULT_SHADER_CONFIG);
+    renderShader();
+  },
+  triggerPacketEffect(outcome) {
+    applyPacketShaderEffect(outcome);
+  },
+};
+
 window.addEventListener("error", (event) => {
   setStatus(`Error: ${event.message}`, true);
 });
@@ -182,13 +291,13 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 try {
-  const rootElement = document.getElementById("shaderRoot");
-  if (!rootElement) {
+  if (!shaderRootEl) {
     throw new Error("Shader container nicht gefunden");
   }
 
-  root = createRoot(rootElement);
+  root = createRoot(shaderRootEl);
   root.render(React.createElement(App));
+  applyPacketLayerStyles();
   setModeBadge();
   setStatus("");
 } catch (error) {

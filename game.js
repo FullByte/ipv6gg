@@ -69,6 +69,14 @@
     );
   }
 
+  function emitShaderPacketFeedback(outcome, detail = {}) {
+    window.dispatchEvent(
+      new CustomEvent("ipv6gg:packet", {
+        detail: { outcome, ...detail }
+      })
+    );
+  }
+
   function logScoreProgress(context = "update") {
     const levelBaseScore = (level - 1) * 100;
     const progressInLevel = Math.max(0, score - levelBaseScore);
@@ -506,6 +514,7 @@
     score += 10;
     correctHits += 1;
     comboStreak += 1;
+    emitShaderPacketFeedback("hit", { target: target.label, combo: comboStreak });
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, okColor);
     addToast(`Praefix match! -> ${target.label}`, okColor, 3.5);
     triggerImpact("ok");
@@ -520,6 +529,7 @@
     lives -= 1;
     comboStreak = 0;
     wrongHits += 1;
+    emitShaderPacketFeedback("miss", { reason });
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, badColor);
     addToast(reason, badColor, 3.8);
     triggerImpact("bad");
@@ -555,6 +565,7 @@
         score += 5;
         correctHits += 1;
         comboStreak += 1;
+        emitShaderPacketFeedback("isolate", { combo: comboStreak });
         addToast("Fehlversuch korrekt isoliert (+5)", "#7dffc1", 3.2);
         createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, "#7dffc1");
         triggerImpact("ok");
