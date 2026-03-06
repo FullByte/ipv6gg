@@ -9,8 +9,10 @@
   const endHighscoreText = document.getElementById("endHighscoreText");
   const musicBtn = document.getElementById("musicBtn");
   const soundBtn = document.getElementById("soundBtn");
+  const touchBtn = document.getElementById("touchBtn");
   const bgm = document.getElementById("bgm");
   const impactFlash = document.getElementById("impactFlash");
+  const mobileButtons = document.getElementById("mobileButtons");
 
   const GAME_W = 800;
   const GAME_H = 600;
@@ -34,6 +36,7 @@
   let running = false;
   let draggingPacket = null;
   let pointer = { x: 0, y: 0 };
+  let touchEnabled = false;
   let musicEnabled = true;
   let soundEnabled = true;
   let audioCtx = null;
@@ -56,6 +59,17 @@
 
   function syncSoundButton() {
     soundBtn.textContent = `Effekte: ${soundEnabled ? "On" : "Off"}`;
+  }
+
+  function syncTouchButton() {
+    touchBtn.textContent = `Touch: ${touchEnabled ? "On" : "Off"}`;
+    if (mobileButtons) {
+      if (touchEnabled) {
+        mobileButtons.classList.add("touch-enabled");
+      } else {
+        mobileButtons.classList.remove("touch-enabled");
+      }
+    }
   }
 
   const targets = [
@@ -273,7 +287,7 @@
     const correctTarget = findBestTargetIndex(address);
     const ttl = Math.max(2.3, 6.6 - level * 0.35);
 
-    const packetW = 280;
+    const packetW = 260;
     packets.push({
       id: packetId,
       x: 20 + Math.random() * (GAME_W - 40 - packetW),
@@ -711,9 +725,14 @@
     if (soundEnabled) beep(520, 0.08, "square", 0.09);
   });
 
+  touchBtn.addEventListener("click", () => {
+    touchEnabled = !touchEnabled;
+    syncTouchButton();
+  });
+
   // Mobile route buttons
-  const mobileButtons = document.querySelectorAll(".mobile-btn");
-  mobileButtons.forEach((btn) => {
+  const mobileRouteButtons = document.querySelectorAll(".mobile-btn");
+  mobileRouteButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
       const routeIndex = Number(btn.getAttribute("data-route"));
       tryStartMusic();
@@ -756,6 +775,7 @@
   window.addEventListener("touchstart", tryStartMusic, { passive: true });
   syncMusicButton();
   syncSoundButton();
+  syncTouchButton();
   requestAnimationFrame((ts) => {
     lastTime = ts;
     gameLoop(ts);
