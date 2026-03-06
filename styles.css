@@ -247,6 +247,30 @@ body {
   line-height: 1.35;
 }
 
+.help-panel {
+  max-height: 82vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.help-panel h2 {
+  text-align: center;
+}
+
+.help-panel ul {
+  margin: 10px 0;
+  padding-left: 18px;
+}
+
+.help-panel li {
+  margin: 8px 0;
+  line-height: 1.35;
+}
+
+.help-panel code {
+  color: #9de8ff;
+}
+
 .panel button {
   margin-top: 10px;
   border: 1px solid var(--neon);
@@ -340,9 +364,8 @@ body {
   .panel p {
     font-size: 14px;
   }
-  }
 
-  .mobile-buttons {
-    display: flex;
+  .help-panel {
+    max-height: 76vh;
   }
 }

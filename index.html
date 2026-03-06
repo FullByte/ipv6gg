@@ -19,6 +19,7 @@
         <button id="musicBtn" aria-label="Musik umschalten">Music: On</button>
         <button id="soundBtn" aria-label="Effekte umschalten">Effekte: On</button>
         <button id="touchBtn" aria-label="Touch-Buttons umschalten">Touch: Off</button>
+        <button id="helpBtn" aria-label="Spielhilfe anzeigen">Hilfe</button>
       </div>
 
       <div class="mobile-buttons" id="mobileButtons">
@@ -47,6 +48,26 @@
           <p id="endScoreText"></p>
           <p id="endHighscoreText"></p>
           <button id="playAgainBtn">Play Again</button>
+        </div>
+      </div>
+
+      <div class="overlay hidden" id="helpOverlay">
+        <div class="panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+          <h2 id="helpTitle">So funktioniert ipv6gg</h2>
+          <p>Du spielst einen Router und musst jedes einfliegende IPv6-Paket an das richtige Zielnetz schicken, bevor seine Zeit abläuft.</p>
+          <ul>
+            <li><strong>Ziel:</strong> Möglichst viele Pakete korrekt routen und den Highscore steigern.</li>
+            <li><strong>Steuerung:</strong> Tasten <strong>1-4</strong> oder Paket mit Drag and Drop auf eine Route ziehen.</li>
+            <li><strong>Touch-Steuerung:</strong> Mit <strong>Touch: On</strong> erscheinen die großen 1-4 Buttons unter dem Spielfeld.</li>
+            <li><strong>Regel:</strong> Es gilt Longest Prefix Match. Das spezifischste passende Präfix gewinnt.</li>
+            <li><strong>Routen:</strong> Route 1 und 2 sind /64-Netze, Route 3 ist exakt <code>ff02::1</code>, Route 4 ist für nicht zuordenbare Pakete.</li>
+            <li><strong>Punkte:</strong> Korrekte Route +10, korrekter Fehlversuch +5.</li>
+            <li><strong>Fehler:</strong> Falsche Route, Timeout oder verlorenes Paket kostet ein Leben.</li>
+            <li><strong>Game Over:</strong> Bei 0 Leben endet die Runde, danach kannst du direkt neu starten.</li>
+            <li><strong>Tipps:</strong> Kurze Präfixe sind allgemeiner, lange Präfixe sind genauer. Achte zuerst auf den Anfang des IPv6-Blocks.</li>
+          </ul>
+          <p>Hotkeys: <strong>Enter</strong> startet das Spiel/Restart, <strong>M</strong> schaltet Effekte.</p>
+          <button id="closeHelpBtn">Verstanden</button>
         </div>
       </div>
     </div>

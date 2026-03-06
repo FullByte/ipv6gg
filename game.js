@@ -10,14 +10,18 @@
   const musicBtn = document.getElementById("musicBtn");
   const soundBtn = document.getElementById("soundBtn");
   const touchBtn = document.getElementById("touchBtn");
+  const helpBtn = document.getElementById("helpBtn");
   const bgm = document.getElementById("bgm");
   const impactFlash = document.getElementById("impactFlash");
   const mobileButtons = document.getElementById("mobileButtons");
+  const helpOverlay = document.getElementById("helpOverlay");
+  const closeHelpBtn = document.getElementById("closeHelpBtn");
 
   const GAME_W = 800;
   const GAME_H = 600;
   const TARGET_Y = 500;
   const STORAGE_KEY = "ipv6gg_highscore";
+  const mobileMode = window.matchMedia("(max-width: 700px), (pointer: coarse)").matches;
 
   const neon = "#28d7ff";
   const okColor = "#59ff9a";
@@ -29,6 +33,8 @@
   let level = 1;
   let score = 0;
   let lives = 3;
+  let correctHits = 0;
+  let wrongHits = 0;
   let highscore = Number(localStorage.getItem(STORAGE_KEY) || 0);
   let spawnTimer = 0;
   let lastTime = 0;
@@ -36,7 +42,7 @@
   let running = false;
   let draggingPacket = null;
   let pointer = { x: 0, y: 0 };
-  let touchEnabled = false;
+  let touchEnabled = mobileMode;
   let musicEnabled = true;
   let soundEnabled = true;
   let audioCtx = null;
@@ -310,6 +316,8 @@
     level = 1;
     score = 0;
     lives = 3;
+    correctHits = 0;
+    wrongHits = 0;
     spawnTimer = 0;
     draggingPacket = null;
     packetId = 1;
@@ -320,7 +328,16 @@
     running = true;
     startOverlay.classList.add("hidden");
     endOverlay.classList.add("hidden");
+    helpOverlay.classList.add("hidden");
     addToast("Route aktiv. Nutze Drag oder 1-4.", neon, 1.8);
+  }
+
+  function openHelp() {
+    helpOverlay.classList.remove("hidden");
+  }
+
+  function closeHelp() {
+    helpOverlay.classList.add("hidden");
   }
 
   function endGame() {
@@ -348,8 +365,9 @@
 
   function scoreHit(packet, target) {
     score += 10;
+    correctHits += 1;
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, okColor);
-    addToast(`Praefix match! -> ${target.label}`, okColor, 1.15);
+    addToast(`Praefix match! -> ${target.label}`, okColor, 3.5);
     triggerImpact("ok");
     beep(740, 0.09, "square", 0.108);
     beep(1080, 0.08, "square", 0.09);
@@ -358,8 +376,9 @@
 
   function scoreMiss(packet, reason) {
     lives -= 1;
+    wrongHits += 1;
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, badColor);
-    addToast(reason, badColor, 1.2);
+    addToast(reason, badColor, 3.8);
     triggerImpact("bad");
     beep(210, 0.18, "sawtooth", 0.114);
     beep(105, 0.25, "square", 0.095);
@@ -380,7 +399,8 @@
     if (targetIndex === 3) {
       if (packet.correctTarget === -1) {
         score += 5;
-        addToast("Fehlversuch korrekt isoliert (+5)", "#7dffc1", 1.0);
+        correctHits += 1;
+        addToast("Fehlversuch korrekt isoliert (+5)", "#7dffc1", 3.2);
         createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, "#7dffc1");
         triggerImpact("ok");
         beep(560, 0.08, "square", 0.09);
@@ -631,10 +651,14 @@
     ctx.fillText(`Leben: ${lives}`, 180, 27);
     ctx.fillText(`Level: ${level}`, 310, 27);
     ctx.fillText(`Highscore: ${highscore}`, 430, 27);
+    ctx.font = "bold 14px Trebuchet MS";
+    ctx.fillStyle = "#9bffcb";
+    ctx.fillText(`Richtig: ${correctHits}`, 610, 27);
+    ctx.fillStyle = "#ff93b7";
+    ctx.fillText(`Falsch: ${wrongHits}`, 700, 27);
 
     ctx.font = "12px Trebuchet MS";
     ctx.fillStyle = "rgba(231, 247, 255, 0.75)";
-    ctx.fillText("Tasten 1-4: schnell routen", 645, 27);
     ctx.restore();
   }
 
@@ -730,6 +754,18 @@
     syncTouchButton();
   });
 
+  helpBtn.addEventListener("click", () => {
+    openHelp();
+  });
+
+  closeHelpBtn.addEventListener("click", () => {
+    closeHelp();
+  });
+
+  helpOverlay.addEventListener("click", (ev) => {
+    if (ev.target === helpOverlay) closeHelp();
+  });
+
   // Mobile route buttons
   const mobileRouteButtons = document.querySelectorAll(".mobile-btn");
   mobileRouteButtons.forEach((btn) => {
@@ -746,6 +782,25 @@
   canvas.addEventListener("pointercancel", onPointerUp);
 
   window.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !helpOverlay.classList.contains("hidden")) {
+      ev.preventDefault();
+      closeHelp();
+      return;
+    }
+
+    if (ev.key === "Enter") {
+      if (!startOverlay.classList.contains("hidden")) {
+        ev.preventDefault();
+        startBtn.click();
+        return;
+      }
+      if (!endOverlay.classList.contains("hidden")) {
+        ev.preventDefault();
+        playAgainBtn.click();
+        return;
+      }
+    }
+
     tryStartMusic();
     if (["1", "2", "3", "4"].includes(ev.key)) {
       handleKeyRoute(Number(ev.key) - 1);
