@@ -438,7 +438,7 @@
       acceptedTargets: packetData.acceptedTargets || null,
       timeLeft: ttl,
       maxTime: ttl,
-      speed: 31 + level * 7.8 + Math.random() * 8.5,
+      speed: 31 + level * 7.8,
       correctTarget,
       spawnedAt: packetId++
     });
@@ -684,19 +684,6 @@
       ctx.stroke();
     }
 
-    for (let i = 0; i < 8; i += 1) {
-      const nx = 55 + i * 100;
-      const ny = 85 + Math.sin(t * 0.0016 + i) * 18;
-      const pulse = 3 + Math.sin(t * 0.003 + i) * 1.2;
-      ctx.beginPath();
-      ctx.fillStyle = "rgba(40, 215, 255, 0.22)";
-      ctx.arc(nx, ny, pulse + 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.fillStyle = "rgba(40, 215, 255, 0.9)";
-      ctx.arc(nx, ny, pulse, 0, Math.PI * 2);
-      ctx.fill();
-    }
     ctx.restore();
   }
 
