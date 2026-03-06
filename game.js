@@ -34,7 +34,7 @@
   let draggingPacket = null;
   let pointer = { x: 0, y: 0 };
   let musicEnabled = true;
-  let soundEnabled = false;
+  let soundEnabled = true;
   let audioCtx = null;
 
   bgm.volume = 0.35;
@@ -51,6 +51,10 @@
 
   function syncMusicButton() {
     musicBtn.textContent = `Music: ${musicEnabled ? "On" : "Off"}`;
+  }
+
+  function syncSoundButton() {
+    soundBtn.textContent = `Effekte: ${soundEnabled ? "On" : "Off"}`;
   }
 
   const targets = [
@@ -227,11 +231,12 @@
     const correctTarget = findBestTargetIndex(address);
     const ttl = Math.max(2.3, 6.6 - level * 0.35);
 
+    const packetW = 280;
     packets.push({
       id: packetId,
-      x: 60 + Math.random() * 600,
+      x: 20 + Math.random() * (GAME_W - 40 - packetW),
       y: -40,
-      w: 165,
+      w: packetW,
       h: 44,
       address,
       timeLeft: ttl,
@@ -496,7 +501,7 @@
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#e7f7ff";
       ctx.font = "12px Consolas, monospace";
-      const text = p.address.length > 25 ? `${p.address.slice(0, 25)}...` : p.address;
+      const text = p.address.length > 42 ? `${p.address.slice(0, 42)}…` : p.address;
       ctx.fillText(text, p.x + 8, p.y + 19);
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
@@ -648,7 +653,7 @@
   soundBtn.addEventListener("click", () => {
     initAudio();
     soundEnabled = !soundEnabled;
-    soundBtn.textContent = `Sound: ${soundEnabled ? "On" : "Off"}`;
+    syncSoundButton();
     if (soundEnabled && audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume();
     }
@@ -699,6 +704,7 @@
   window.addEventListener("pointerdown", tryStartMusic, { passive: true });
   window.addEventListener("touchstart", tryStartMusic, { passive: true });
   syncMusicButton();
+  syncSoundButton();
   requestAnimationFrame((ts) => {
     lastTime = ts;
     gameLoop(ts);
