@@ -11,6 +11,7 @@
   const soundBtn = document.getElementById("soundBtn");
   const touchBtn = document.getElementById("touchBtn");
   const helpBtn = document.getElementById("helpBtn");
+  const startHelpLink = document.getElementById("startHelpLink");
   const bgm = document.getElementById("bgm");
   const impactFlash = document.getElementById("impactFlash");
   const mobileButtons = document.getElementById("mobileButtons");
@@ -973,6 +974,13 @@
   helpBtn.addEventListener("click", () => {
     openHelp();
   });
+
+  if (startHelpLink) {
+    startHelpLink.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      openHelp();
+    });
+  }
 
   closeHelpBtn.addEventListener("click", () => {
     closeHelp();

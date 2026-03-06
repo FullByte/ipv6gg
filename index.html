@@ -27,6 +27,7 @@
   <div class="app">
     <div class="frame">
       <div id="shaderRoot" class="shader-layer" aria-hidden="true"></div>
+      <div id="shaderPulseLayer" class="shader-pulse-layer" aria-hidden="true"></div>
       <div id="shaderStatus" class="shader-status" role="status" aria-live="polite"></div>
       <div id="shaderEffectMode" class="shader-effect" aria-live="polite"></div>
       <div id="shaderComboBanner" class="shader-combo-banner" aria-live="polite" aria-atomic="true"></div>
@@ -56,7 +57,7 @@
           <p>Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.</p>
           <p>Route per Tasten <strong>1-5</strong>, oder <strong>Buttons</strong> (Touch=on) zum passenden Ziel.</p>
           <p>Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>          
-          <p>Weitere Details siehe "Hilfe"</p>
+          <p class="start-help-hint">Weitere Details siehe <a id="startHelpLink" href="#" aria-label="Hilfe anzeigen">[H]ilfe</a></p>
           <button id="startBtn">Spiel starten!</button>
         </div>
       </div>

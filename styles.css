@@ -49,6 +49,172 @@ body {
   pointer-events: none;
 }
 
+.shader-pulse-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.shader-ring-pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(180px, 42vw, 420px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--pulse-color, #6fd6ff) 24%, transparent) 0%, transparent 56%),
+    conic-gradient(from var(--pulse-angle, 0deg), transparent 0deg, color-mix(in srgb, var(--pulse-color, #6fd6ff) 42%, transparent) 82deg, transparent 140deg, color-mix(in srgb, var(--pulse-color, #6fd6ff) 32%, transparent) 250deg, transparent 320deg);
+  border: 1.4px solid var(--pulse-color, rgba(111, 214, 255, 0.7));
+  transform: translate(-50%, -50%) scale(0.86) rotate(var(--pulse-rotation, 0deg));
+  transform-origin: 50% 50%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--pulse-color, #6fd6ff) 68%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--pulse-color, #6fd6ff) 44%, transparent);
+  animation: shader-ring-pulse 880ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+.shader-ring-pulse.echo {
+  border-width: 1px;
+  opacity: 0;
+  filter: blur(0.2px);
+  animation-name: shader-ring-pulse-echo;
+}
+
+.shader-ring-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(72px, 15vw, 138px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scale(0.4) rotate(var(--spark-rotation, 0deg));
+  transform-origin: 50% 50%;
+  opacity: 0;
+  pointer-events: none;
+  isolation: isolate;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--pulse-color, #6fd6ff) 72%, white) 0%, color-mix(in srgb, var(--pulse-color, #6fd6ff) 49%, transparent) 42%, transparent 74%),
+    conic-gradient(from 0deg, transparent 0deg, color-mix(in srgb, var(--pulse-color, #6fd6ff) 46%, transparent) 72deg, transparent 140deg, color-mix(in srgb, var(--pulse-color, #6fd6ff) 39%, transparent) 240deg, transparent 320deg);
+  mix-blend-mode: screen;
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--pulse-color, #6fd6ff) 70%, transparent),
+    inset 0 0 11px color-mix(in srgb, var(--pulse-color, #6fd6ff) 38%, transparent);
+  animation: shader-ring-spark 520ms ease-out forwards;
+}
+
+.shader-ring-spark::before,
+.shader-ring-spark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.shader-ring-spark::before {
+  border: 1px solid color-mix(in srgb, var(--pulse-color, #6fd6ff) 66%, transparent);
+  opacity: 0;
+  transform: scale(0.7);
+  animation: shader-ring-spark-halo 540ms ease-out forwards;
+}
+
+.shader-ring-spark::after {
+  inset: 22%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--pulse-color, #6fd6ff) 78%, white) 0%, transparent 72%);
+  filter: blur(0.2px);
+  opacity: 0;
+  animation: shader-ring-spark-core 480ms ease-out forwards;
+}
+
+@keyframes shader-ring-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.84) rotate(var(--pulse-rotation, 0deg));
+    opacity: 0;
+    filter: blur(0.3px);
+  }
+  20% {
+    opacity: 0.46;
+    filter: blur(0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.1) rotate(calc(var(--pulse-rotation, 0deg) + 26deg));
+    opacity: 0;
+    filter: blur(0.8px);
+  }
+}
+
+@keyframes shader-ring-pulse-echo {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8) rotate(var(--pulse-rotation, 0deg));
+    opacity: 0;
+  }
+  28% {
+    opacity: 0.28;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.16) rotate(calc(var(--pulse-rotation, 0deg) - 20deg));
+    opacity: 0;
+  }
+}
+
+@keyframes shader-ring-spark {
+  0% {
+    transform: translate(-50%, -50%) scale(0.32) rotate(var(--spark-rotation, 0deg));
+    opacity: 0;
+    filter: blur(1.1px);
+  }
+  20% {
+    opacity: 0.56;
+    filter: blur(0.2px);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.02) rotate(calc(var(--spark-rotation, 0deg) + 36deg));
+    opacity: 0;
+    filter: blur(0.8px);
+  }
+}
+
+@keyframes shader-ring-spark-halo {
+  0% {
+    opacity: 0;
+    transform: scale(0.64);
+  }
+  26% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes shader-ring-spark-core {
+  0% {
+    opacity: 0;
+    transform: scale(0.66);
+  }
+  22% {
+    opacity: 0.66;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shader-ring-pulse,
+  .shader-ring-pulse.echo,
+  .shader-ring-spark {
+    animation-duration: 380ms !important;
+  }
+}
+
 .shader-status {
   position: absolute;
   left: 12px;
@@ -346,6 +512,36 @@ body {
 .panel p {
   margin: 8px 0;
   line-height: 1.35;
+}
+
+.start-help-hint {
+  margin-top: 14px;
+  padding-top: 10px;
+  position: relative;
+  color: rgba(231, 247, 255, 0.86);
+  font-size: 14px;
+}
+
+.start-help-hint::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(58%, 240px);
+  border-top: 1px solid rgba(159, 183, 217, 0.2);
+}
+
+.start-help-hint a {
+  color: #9de8ff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.start-help-hint a:hover,
+.start-help-hint a:focus-visible {
+  color: #d8f6ff;
+  outline: none;
 }
 
 .help-panel {

@@ -58,12 +58,11 @@ const COMBO_TONES = {
   levelup: "#a7ff8a"
 };
 
-let comboRingColor = null;
-let comboTimeout = null;
 let comboMessageTimeout = null;
 let comboBannerTimeout = null;
 let root = null;
 const shaderRootEl = document.getElementById("shaderRoot");
+const shaderPulseLayerEl = document.getElementById("shaderPulseLayer");
 const packetLayerState = {
   strength: 0,
   targetStrength: 0,
@@ -73,8 +72,8 @@ let packetLayerRaf = 0;
 const shaderRuntimeConfig = { ...DEFAULT_SHADER_CONFIG };
 
 function App() {
-  const color = comboRingColor || shaderRuntimeConfig.ringColor || "#4599ff";
-  const borderColor = comboRingColor || shaderRuntimeConfig.borderColor || color;
+  const color = shaderRuntimeConfig.ringColor || "#4599ff";
+  const borderColor = shaderRuntimeConfig.borderColor || color;
 
   const shaderConfig = {
     ...shaderRuntimeConfig,
@@ -178,6 +177,44 @@ const applyPacketShaderEffect = (outcome) => {
   animatePacketLayerEffect();
 };
 
+const pushRingBurst = (tone = "combo", durationMs = 900) => {
+  if (!shaderPulseLayerEl) return;
+  const color = COMBO_TONES[tone] || COMBO_TONES.combo;
+  const effectiveDuration = useReducedEffects ? Math.min(durationMs, 700) : durationMs;
+  const rotation = `${Math.round(Math.random() * 34 - 17)}deg`;
+
+  const pulse = document.createElement("div");
+  pulse.className = "shader-ring-pulse";
+  pulse.style.setProperty("--pulse-color", color);
+  pulse.style.setProperty("--pulse-rotation", rotation);
+  pulse.style.animationDuration = `${effectiveDuration}ms`;
+
+  const echo = document.createElement("div");
+  echo.className = "shader-ring-pulse echo";
+  echo.style.setProperty("--pulse-color", color);
+  echo.style.setProperty("--pulse-rotation", `${Math.round(Math.random() * 28 - 14)}deg`);
+  echo.style.animationDuration = `${Math.round(effectiveDuration * 1.12)}ms`;
+  echo.style.animationDelay = `${Math.round(Math.min(120, effectiveDuration * 0.12))}ms`;
+
+  const spark = document.createElement("div");
+  spark.className = "shader-ring-spark";
+  spark.style.setProperty("--pulse-color", color);
+  spark.style.setProperty("--spark-rotation", `${Math.round(Math.random() * 46 - 23)}deg`);
+  spark.style.animationDuration = `${Math.max(260, Math.round(effectiveDuration * 0.56))}ms`;
+
+  shaderPulseLayerEl.appendChild(pulse);
+  shaderPulseLayerEl.appendChild(echo);
+  shaderPulseLayerEl.appendChild(spark);
+
+  const cleanup = () => {
+    pulse.removeEventListener("animationend", cleanup);
+    if (pulse.parentNode) pulse.parentNode.removeChild(pulse);
+    if (echo.parentNode) echo.parentNode.removeChild(echo);
+    if (spark.parentNode) spark.parentNode.removeChild(spark);
+  };
+  pulse.addEventListener("animationend", cleanup);
+};
+
 const showComboBadge = (text, tone = "combo") => {
   if (!modeEl) return;
   modeEl.classList.remove("combo-popup");
@@ -223,17 +260,7 @@ window.addEventListener("ipv6gg:combo", (event) => {
 
   showComboBadge(label, tone);
   showComboBanner(label, tone);
-
-  comboRingColor = COMBO_TONES[tone] || COMBO_TONES.combo;
-  renderShader();
-
-  if (comboTimeout) {
-    clearTimeout(comboTimeout);
-  }
-  comboTimeout = setTimeout(() => {
-    comboRingColor = null;
-    renderShader();
-  }, 900);
+  pushRingBurst(tone, 900);
 });
 
 window.addEventListener("ipv6gg:levelup", (event) => {
@@ -242,17 +269,7 @@ window.addEventListener("ipv6gg:levelup", (event) => {
 
   showComboBadge(`LEVEL ${nextLevel} UP`, "levelup");
   showComboBanner(`LEVEL ${nextLevel} UP`, "levelup");
-
-  comboRingColor = COMBO_TONES.levelup;
-  renderShader();
-
-  if (comboTimeout) {
-    clearTimeout(comboTimeout);
-  }
-  comboTimeout = setTimeout(() => {
-    comboRingColor = null;
-    renderShader();
-  }, 980);
+  pushRingBurst("levelup", 980);
 });
 
 window.addEventListener("ipv6gg:packet", (event) => {
