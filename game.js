@@ -10,6 +10,7 @@
   const musicBtn = document.getElementById("musicBtn");
   const soundBtn = document.getElementById("soundBtn");
   const bgm = document.getElementById("bgm");
+  const impactFlash = document.getElementById("impactFlash");
 
   const GAME_W = 800;
   const GAME_H = 600;
@@ -73,7 +74,7 @@
     }
   }
 
-  function beep(freq, duration, type, volume = 0.045) {
+  function beep(freq, duration, type, volume = 0.102) {
     if (!soundEnabled || !audioCtx) return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
@@ -89,8 +90,49 @@
     osc.stop(now + duration);
   }
 
+  function playChiptune(notes, tempo = 0.08) {
+    if (!soundEnabled || !audioCtx) return;
+    notes.forEach((note, i) => {
+      setTimeout(() => {
+        beep(note.freq, note.dur || tempo, note.type || "square", note.vol || 0.11);
+      }, i * tempo * 1000);
+    });
+  }
+
+  function playLevelUpSound() {
+    playChiptune([
+      { freq: 523, dur: 0.09, vol: 0.115 },
+      { freq: 659, dur: 0.09, vol: 0.115 },
+      { freq: 784, dur: 0.09, vol: 0.12 },
+      { freq: 1047, dur: 0.15, vol: 0.13 }
+    ], 0.095);
+  }
+
+  function playGameOverSound() {
+    playChiptune([
+      { freq: 330, dur: 0.15, type: "sawtooth", vol: 0.12 },
+      { freq: 294, dur: 0.15, type: "sawtooth", vol: 0.13 },
+      { freq: 247, dur: 0.15, type: "sawtooth", vol: 0.14 },
+      { freq: 196, dur: 0.25, type: "sawtooth", vol: 0.15 },
+      { freq: 98, dur: 0.35, type: "square", vol: 0.11 }
+    ], 0.12);
+  }
+
   function addToast(text, color = neon, life = 1.2) {
     toasts.push({ text, color, life, maxLife: life });
+  }
+
+  function triggerImpact(type) {
+    if (!impactFlash) return;
+    impactFlash.classList.remove("flash-ok", "flash-bad", "flash-levelup", "flash-gameover");
+    void impactFlash.offsetWidth;
+    const className = {
+      ok: "flash-ok",
+      bad: "flash-bad",
+      levelup: "flash-levelup",
+      gameover: "flash-gameover"
+    }[type];
+    if (className) impactFlash.classList.add(className);
   }
 
   function createParticles(x, y, color) {
@@ -269,6 +311,8 @@
 
   function endGame() {
     running = false;
+    playGameOverSound();
+    triggerImpact("gameover");
     if (score > highscore) {
       highscore = score;
       localStorage.setItem(STORAGE_KEY, String(highscore));
@@ -283,7 +327,8 @@
     if (targetLevel > level) {
       level = targetLevel;
       addToast(`Level ${level}: Mehr Traffic im Netz!`, "#ffd166", 1.4);
-      beep(620, 0.13, "square", 0.03);
+      playLevelUpSound();
+      triggerImpact("levelup");
     }
   }
 
@@ -291,8 +336,9 @@
     score += 10;
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, okColor);
     addToast(`Praefix match! -> ${target.label}`, okColor, 1.15);
-    beep(720, 0.08, "triangle", 0.038);
-    beep(960, 0.07, "triangle", 0.03);
+    triggerImpact("ok");
+    beep(740, 0.09, "square", 0.108);
+    beep(1080, 0.08, "square", 0.09);
     levelCheck();
   }
 
@@ -300,7 +346,10 @@
     lives -= 1;
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, badColor);
     addToast(reason, badColor, 1.2);
-    beep(190, 0.16, "sawtooth", 0.048);
+    triggerImpact("bad");
+    beep(210, 0.18, "sawtooth", 0.114);
+    beep(105, 0.25, "square", 0.095);
+    beep(75, 0.28, "triangle", 0.09);
     if (lives <= 0) {
       endGame();
     }
@@ -319,7 +368,8 @@
         score += 5;
         addToast("Fehlversuch korrekt isoliert (+5)", "#7dffc1", 1.0);
         createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, "#7dffc1");
-        beep(560, 0.08, "triangle", 0.03);
+        triggerImpact("ok");
+        beep(560, 0.08, "square", 0.09);
         levelCheck();
       } else {
         scoreMiss(packet, "Falsch: Paket haette geroutet werden koennen.");
@@ -417,7 +467,8 @@
   }
 
   function drawBackground(t) {
-    ctx.fillStyle = "#0a0a1a";
+    ctx.clearRect(0, 0, GAME_W, GAME_H);
+    ctx.fillStyle = "rgba(10, 10, 26, 0.55)";
     ctx.fillRect(0, 0, GAME_W, GAME_H);
 
     ctx.save();
@@ -657,7 +708,7 @@
     if (soundEnabled && audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume();
     }
-    if (soundEnabled) beep(520, 0.08, "triangle", 0.03);
+    if (soundEnabled) beep(520, 0.08, "square", 0.09);
   });
 
   // Mobile route buttons

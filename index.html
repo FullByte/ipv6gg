@@ -9,6 +9,10 @@
 <body>
   <div class="app">
     <div class="frame">
+      <div id="shaderRoot" class="shader-layer" aria-hidden="true"></div>
+      <div id="shaderStatus" class="shader-status" role="status" aria-live="polite"></div>
+      <div id="shaderEffectMode" class="shader-effect" aria-live="polite"></div>
+      <div id="impactFlash" class="impact-flash" aria-hidden="true"></div>
       <canvas id="game" width="800" height="600"></canvas>
 
       <div class="controls">
@@ -47,6 +51,7 @@
     </div>
   </div>
 
+  <script type="module" src="shader.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
