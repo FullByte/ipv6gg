@@ -21,6 +21,7 @@
   const helpBtn = document.getElementById("helpBtn");
   const startHelpLink = document.getElementById("startHelpLink");
   const langSelect = document.getElementById("langSelect");
+  const difficultySelect = document.getElementById("difficultySelect");
   const bgm = document.getElementById("bgm");
   const impactFlash = document.getElementById("impactFlash");
   const mobileButtons = document.getElementById("mobileButtons");
@@ -60,6 +61,16 @@
   let musicEnabled = true;
   const SOUND_MODES = ["person", "effekt", "off"];
   let soundMode = "person";
+  const DIFFICULTIES = ["easy", "normal", "hard"];
+  /** Aktive Schwierigkeit (wird beim Start aus dem Dropdown übernommen; während des Laufs nicht änderbar). */
+  let difficulty = "normal";
+
+  const DIFFICULTY_CONFIG = {
+    easy:   { spawnFactor: 1.85, speedFactor: 0.58, ttlFactor: 1.55, route3Enabled: false, suggestHighlight: true },
+    normal: { spawnFactor: 1,    speedFactor: 1,    ttlFactor: 1,    route3Enabled: true,  suggestHighlight: false },
+    hard:   { spawnFactor: 0.82, speedFactor: 1.12, ttlFactor: 0.88, route3Enabled: true,  suggestHighlight: false },
+  };
+
   let audioCtx = null;
   let targetPressFx = [0, 0, 0, 0, 0];
 
@@ -93,27 +104,29 @@
     );
   }
 
+  const POINTS_PER_LEVEL = 200;
+
   function logScoreProgress(context = "update") {
-    const levelBaseScore = (level - 1) * 100;
+    const levelBaseScore = (level - 1) * POINTS_PER_LEVEL;
     const progressInLevel = Math.max(0, score - levelBaseScore);
-    const pointsToNextLevel = Math.max(0, level * 100 - score);
+    const pointsToNextLevel = Math.max(0, level * POINTS_PER_LEVEL - score);
     console.log(
-      `[Score][${context}] score=${score} level=${level} progress=${progressInLevel}/100 toNext=${pointsToNextLevel} lives=${lives} combo=${comboStreak}`
+      `[Score][${context}] score=${score} level=${level} progress=${progressInLevel}/${POINTS_PER_LEVEL} toNext=${pointsToNextLevel} lives=${lives} combo=${comboStreak}`
     );
   }
 
   function awardComboBonus(packet, tone = "combo") {
-    if (comboStreak < 3) return;
+    if (comboStreak < 5) return;
     score += COMBO_BONUS;
-    if (comboStreak === 3) {
+    if (comboStreak === 5) {
       playEffectMp3("combo");
-      if (soundMode === "effekt") playComboSignatureSound(3, "combo");
-    } else if (comboStreak === 5) {
-      playEffectMp3("mega");
-      if (soundMode === "effekt") playComboSignatureSound(5, "mega");
+      if (soundMode === "effekt") playComboSignatureSound(5, "combo");
     } else if (comboStreak === 10) {
+      playEffectMp3("mega");
+      if (soundMode === "effekt") playComboSignatureSound(10, "mega");
+    } else if (comboStreak === 15) {
       playEffectMp3("router");
-      if (soundMode === "effekt") playComboSignatureSound(10, "router");
+      if (soundMode === "effekt") playComboSignatureSound(15, "router");
     } else if (comboStreak === 20) {
       playEffectMp3("monster");
       if (soundMode === "effekt") playComboSignatureSound(20, "monster");
@@ -126,13 +139,13 @@
     addToast(t("toast.comboBonus", { n: COMBO_BONUS }), "#9de8ff", 1.8);
 
     const comboLabel = (key) => t(key).replace(/!$/, "");
-    if (comboStreak === 3) {
+    if (comboStreak === 5) {
       emitShaderCombo(comboLabel("toast.combo"), comboStreak, tone);
       addToast(t("toast.combo"), "#7fdfff", 2.2);
-    } else if (comboStreak === 5) {
+    } else if (comboStreak === 10) {
       emitShaderCombo(comboLabel("toast.megaCombo"), comboStreak, "mega");
       addToast(t("toast.megaCombo"), "#ffd166", 2.4);
-    } else if (comboStreak === 10) {
+    } else if (comboStreak === 15) {
       emitShaderCombo(comboLabel("toast.goodRouter"), comboStreak, "router");
       addToast(t("toast.goodRouter"), "#ffb86c", 2.6);
     } else if (comboStreak === 20) {
@@ -177,6 +190,18 @@
     }
   }
 
+  function syncDifficultySelect() {
+    if (!difficultySelect) return;
+    difficultySelect.disabled = running;
+    difficultySelect.setAttribute("aria-label", t("aria.difficulty"));
+    const opts = difficultySelect.options;
+    if (opts.length >= 3) {
+      opts[0].textContent = t("difficulty.easy");
+      opts[1].textContent = t("difficulty.normal");
+      opts[2].textContent = t("difficulty.hard");
+    }
+  }
+
   function applyUITranslations() {
     if (langSelect) {
       langSelect.value = window.i18n.getLanguage();
@@ -216,6 +241,7 @@
       helpBtn.textContent = t("btn.help");
       helpBtn.setAttribute("aria-label", t("aria.help"));
     }
+    syncDifficultySelect();
   }
 
   const targets = [
@@ -226,14 +252,30 @@
     { key: "5", label: "Fehlversuch", prefix: null, rect: { x: 0, y: TARGET_Y, w: 0, h: 64 } }
   ];
 
+  function getDifficultyConfig() {
+    return DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
+  }
+
   function layoutTargets() {
+    const config = getDifficultyConfig();
     const availableWidth = GAME_W - TARGET_MARGIN_X * 2;
-    const slotWidth = (availableWidth - TARGET_GAP * (targets.length - 1)) / targets.length;
+    const activeIndices = config.route3Enabled ? [0, 1, 2, 3, 4] : [0, 1, 3, 4];
+    const n = activeIndices.length;
+    const slotWidth = (availableWidth - TARGET_GAP * (n - 1)) / n;
+    let slotIndex = 0;
     for (let i = 0; i < targets.length; i += 1) {
-      targets[i].rect.x = TARGET_MARGIN_X + i * (slotWidth + TARGET_GAP);
-      targets[i].rect.y = TARGET_Y;
-      targets[i].rect.w = slotWidth;
-      targets[i].rect.h = 64;
+      if (i === 2 && !config.route3Enabled) {
+        targets[i].rect.x = -1000;
+        targets[i].rect.y = TARGET_Y;
+        targets[i].rect.w = 0;
+        targets[i].rect.h = 64;
+      } else {
+        targets[i].rect.x = TARGET_MARGIN_X + slotIndex * (slotWidth + TARGET_GAP);
+        targets[i].rect.y = TARGET_Y;
+        targets[i].rect.w = slotWidth;
+        targets[i].rect.h = 64;
+        slotIndex += 1;
+      }
     }
   }
 
@@ -519,16 +561,29 @@
     return groups.join(":").replace(/(^|:)0{1,3}/g, "$1");
   }
 
+  function route3OrAlternate() {
+    if (getDifficultyConfig().route3Enabled) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
+    return Math.random() < 0.5
+      ? { address: randomIPv6FromPrefix("2001:db8:1::/64") }
+      : { address: randomIPv6FromPrefix("2001:db8:2::/64") };
+  }
+
   function generatePacketAddress() {
     const roll = Math.random();
+    const isHard = difficulty === "hard";
 
-    // Level 5+: increase route-4 and route-5 pressure.
+    // Level 5+: increase route-4 and route-5 pressure. Hard: noch mehr Spezial/Invalid.
     if (level >= 5) {
-      if (roll < 0.22) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
-      if (roll < 0.44) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
-      if (roll < 0.62) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
-      if (roll < 0.7) return { address: "ff0e::1", acceptedTargets: [0, 1, 2] };
-      if (roll < 0.84) return { address: "ff02::1" };
+      const a = isHard ? 0.18 : 0.22;
+      const b = isHard ? 0.36 : 0.44;
+      const c = isHard ? 0.52 : 0.62;
+      const d = isHard ? 0.64 : 0.7;
+      const e = isHard ? 0.82 : 0.84;
+      if (roll < a) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
+      if (roll < b) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
+      if (roll < c) return route3OrAlternate();
+      if (roll < d) return { address: "ff0e::1", acceptedTargets: getDifficultyConfig().route3Enabled ? [0, 1, 2] : [0, 1] };
+      if (roll < e) return { address: "ff02::1" };
       let invalidAddr = "";
       do {
         invalidAddr = ["2001", "0db8", "9", randomHex(0x0fff), randomHex(), randomHex(), randomHex(), randomHex()]
@@ -539,13 +594,18 @@
       return { address: invalidAddr };
     }
 
-    // Level 3+: add ff0e::1 packets that can be routed to 1 or 2.
-    if (level >= 3) {
-      if (roll < 0.3) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
-      if (roll < 0.58) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
-      if (roll < 0.78) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
-      if (roll < 0.86) return { address: "ff0e::1", acceptedTargets: [0, 1, 2] };
-      if (roll < 0.93) return { address: "ff02::1" };
+    // Level 3+: add ff0e::1. Hard: Level-5-Verteilung nutzen (mehr Vielfalt).
+    if (level >= 3 || isHard) {
+      const a = isHard ? 0.22 : 0.3;
+      const b = isHard ? 0.44 : 0.58;
+      const c = isHard ? 0.62 : 0.78;
+      const d = isHard ? 0.7 : 0.86;
+      const e = isHard ? 0.84 : 0.93;
+      if (roll < a) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
+      if (roll < b) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
+      if (roll < c) return route3OrAlternate();
+      if (roll < d) return { address: "ff0e::1", acceptedTargets: getDifficultyConfig().route3Enabled ? [0, 1, 2] : [0, 1] };
+      if (roll < e) return { address: "ff02::1" };
       let invalidAddr = "";
       do {
         invalidAddr = ["2001", "0db8", "9", randomHex(0x0fff), randomHex(), randomHex(), randomHex(), randomHex()]
@@ -558,7 +618,7 @@
 
     if (roll < 0.3) return { address: randomIPv6FromPrefix("2001:db8:1::/64") };
     if (roll < 0.6) return { address: randomIPv6FromPrefix("2001:db8:2::/64") };
-    if (roll < 0.82) return { address: randomIPv6FromPrefix("2a10:42:3::/64") };
+    if (roll < 0.82) return route3OrAlternate();
     if (roll < 0.92) return { address: "ff02::1" };
 
     let addr = "";
@@ -573,10 +633,14 @@
   }
 
   function spawnPacket() {
+    const config = getDifficultyConfig();
     const packetData = generatePacketAddress();
     const address = packetData.address;
     const correctTarget = findBestTargetIndex(address);
-    const ttl = Math.max(3.9, 12.1 - level * 0.32);
+    let ttl = Math.max(3.9, 12.1 - level * 0.32);
+    ttl *= config.ttlFactor;
+    let speed = 31 + level * 7.8;
+    speed *= config.speedFactor;
 
     const packetW = 260;
     packets.push({
@@ -589,7 +653,7 @@
       acceptedTargets: packetData.acceptedTargets || null,
       timeLeft: ttl,
       maxTime: ttl,
-      speed: 31 + level * 7.8,
+      speed,
       correctTarget,
       spawnedAt: packetId++
     });
@@ -619,8 +683,11 @@
   }
 
   function startGame() {
+    if (difficultySelect) difficulty = difficultySelect.value;
+    if (!DIFFICULTIES.includes(difficulty)) difficulty = "normal";
     resetGame();
     running = true;
+    syncDifficultySelect();
     startOverlay.classList.add("hidden");
     endOverlay.classList.add("hidden");
     helpOverlay.classList.add("hidden");
@@ -637,6 +704,8 @@
 
   function endGame() {
     running = false;
+    syncDifficultySelect();
+    syncMobileDifficultyState();
     playGameOverSound();
     triggerImpact("gameover");
     if (score > highscore) {
@@ -671,6 +740,7 @@
         const correct = entry.correctLabel != null ? entry.correctLabel : "-";
         const reason = entry.reasonKey ? t(entry.reasonKey) : "";
         text = t("log.entryMiss", { address: entry.address, chosen, correct, reason, comboLine: comboLine(entry.combo != null ? entry.combo : 0), livesWithTotal });
+        if (entry.hardPenalty) text += " " + t("log.hardPenaltySuffix");
       } else if (entry.type === "isolate") {
         text = t("log.entryIsolate", { address: entry.address, points, score, combo, livesWithTotal });
       } else if (entry.type === "timeout") {
@@ -702,7 +772,7 @@
   }
 
   function levelCheck() {
-    const targetLevel = Math.floor(score / 100) + 1;
+    const targetLevel = Math.floor(score / POINTS_PER_LEVEL) + 1;
     while (targetLevel > level) {
       level += 1;
       lives += 1;
@@ -719,7 +789,7 @@
     score += 10;
     correctHits += 1;
     comboStreak += 1;
-    const hitPoints = 10 + (comboStreak >= 3 ? COMBO_BONUS : 0);
+    const hitPoints = 10 + (comboStreak >= 5 ? COMBO_BONUS : 0);
     emitShaderPacketFeedback("hit", { target: target.label, combo: comboStreak });
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, okColor);
     addToast(t("toast.prefixMatch", { label: target.label }), okColor, 3.5);
@@ -735,16 +805,21 @@
   }
 
   function scoreMiss(packet, reason, chosenTargetIndex) {
-    lives -= 1;
+    const comboBeforeReset = comboStreak;
+    const hardPenalty = difficulty === "hard";
+    if (hardPenalty) {
+      score = Math.max(0, (level - 1) * POINTS_PER_LEVEL);
+    }
     comboStreak = 0;
+    lives -= 1;
     wrongHits += 1;
     const chosenLabel = chosenTargetIndex >= 0 && targets[chosenTargetIndex] ? (chosenTargetIndex === 4 ? t("targets.fail") : targets[chosenTargetIndex].label) : null;
     const correctLabel = packet.correctTarget >= 0 && targets[packet.correctTarget] ? targets[packet.correctTarget].label : null;
-    const comboBeforeReset = comboStreak;
-    pushGameLog({ type: "miss", address: packet.address, reasonKey: reason, chosenTargetIndex, chosenLabel, correctTarget: packet.correctTarget, correctLabel, combo: comboBeforeReset, points: 0, livesDelta: -1, lives, score });
+    pushGameLog({ type: "miss", address: packet.address, reasonKey: reason, chosenTargetIndex, chosenLabel, correctTarget: packet.correctTarget, correctLabel, combo: comboBeforeReset, points: 0, livesDelta: -1, lives, score, hardPenalty });
     emitShaderPacketFeedback("miss", { reason });
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, badColor);
     addToast(typeof reason === "string" && reason.startsWith("toast.") ? t(reason) : reason, badColor, 3.8);
+    if (hardPenalty) addToast(t("toast.hardPenalty"), "#ff9f43", 2.8);
     triggerImpact("bad");
     beep(210, 0.18, "sawtooth", 0.114);
     beep(105, 0.25, "square", 0.095);
@@ -778,7 +853,7 @@
         score += 5;
         correctHits += 1;
         comboStreak += 1;
-        const isolatePoints = 5 + (comboStreak >= 3 ? COMBO_BONUS : 0);
+        const isolatePoints = 5 + (comboStreak >= 5 ? COMBO_BONUS : 0);
         emitShaderPacketFeedback("isolate", { combo: comboStreak });
         addToast(t("toast.isolate"), "#7dffc1", 3.2);
         createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, "#7dffc1");
@@ -873,6 +948,7 @@
   function handleKeyRoute(index) {
     if (!running) return;
     if (index < 0 || index > 4) return;
+    if (!getDifficultyConfig().route3Enabled && index === 2) return;
     if (packets.length === 0) return;
 
     const chosen = getPriorityPacket();
@@ -889,6 +965,35 @@
       if (packets[i].spawnedAt < chosen.spawnedAt) chosen = packets[i];
     }
     return chosen;
+  }
+
+  /** Gibt die Ziel-Indizes zurück, die für das Paket korrekt sind (für Vorschlags-Highlight). */
+  function getSuggestedTargetIndices(packet) {
+    if (!packet) return [];
+    const config = getDifficultyConfig();
+    let indices = packet.acceptedTargets && packet.acceptedTargets.length
+      ? packet.acceptedTargets.slice()
+      : (packet.correctTarget >= 0 ? [packet.correctTarget] : []);
+    if (!config.route3Enabled) indices = indices.filter((i) => i !== 2);
+    return indices;
+  }
+
+  function syncMobileDifficultyState() {
+    const config = getDifficultyConfig();
+    const suggestedSet = running ? new Set(getSuggestedTargetIndices(getPriorityPacket())) : new Set();
+    const btns = document.querySelectorAll(".mobile-btn");
+    btns.forEach((btn) => {
+      const routeIndex = Number(btn.getAttribute("data-route"));
+      const hideRoute3 = running && routeIndex === 2 && !config.route3Enabled;
+      if (hideRoute3) {
+        btn.classList.add("hidden");
+        btn.classList.remove("suggested");
+      } else {
+        btn.classList.remove("hidden");
+        if (running && config.suggestHighlight && suggestedSet.has(routeIndex)) btn.classList.add("suggested");
+        else btn.classList.remove("suggested");
+      }
+    });
   }
 
   function drawBackground(t) {
@@ -917,14 +1022,18 @@
 
   function drawTargets() {
     layoutTargets();
+    const config = getDifficultyConfig();
+    const suggestedSet = config.suggestHighlight ? new Set(getSuggestedTargetIndices(getPriorityPacket())) : new Set();
     const now = performance.now();
     for (let i = 0; i < targets.length; i += 1) {
       const tr = targets[i];
       const r = tr.rect;
+      if (r.w <= 0) continue;
       const hover = pointer.x >= r.x && pointer.x <= r.x + r.w && pointer.y >= r.y && pointer.y <= r.y + r.h;
       const isFail = i === 4;
       const isMulticast = i === 3;
       const isPressed = targetPressFx[i] > now;
+      const isSuggested = suggestedSet.has(i);
 
       ctx.save();
       ctx.fillStyle = isFail ? "rgba(255, 76, 138, 0.14)" : isMulticast ? "rgba(255, 166, 77, 0.16)" : "rgba(40, 215, 255, 0.12)";
@@ -934,11 +1043,18 @@
       ctx.strokeStyle = hover || isPressed ? "rgba(255, 255, 255, 0.95)" : isFail ? "rgba(255, 76, 138, 0.8)" : isMulticast ? "rgba(255, 166, 77, 0.9)" : "rgba(40, 215, 255, 0.8)";
       ctx.lineWidth = hover || isPressed ? 2.5 : 1.5;
       ctx.shadowColor = isFail ? "rgba(255, 76, 138, 0.5)" : isMulticast ? "rgba(255, 166, 77, 0.6)" : "rgba(40, 215, 255, 0.55)";
-      ctx.shadowBlur = isPressed ? 22 : 12;
+      ctx.shadowBlur = isPressed ? 22 : isSuggested ? 20 : 12;
+      if (isSuggested) ctx.shadowColor = "rgba(89, 255, 154, 0.85)";
       ctx.beginPath();
       ctx.roundRect(r.x, r.y, r.w, r.h, 10);
       ctx.fill();
       ctx.stroke();
+      if (isSuggested) {
+        ctx.strokeStyle = "rgba(89, 255, 154, 0.9)";
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+      }
 
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#e7f7ff";
@@ -1044,13 +1160,13 @@
   }
 
   function drawHUD() {
-    const levelBaseScore = (level - 1) * 100;
-    const nextLevelScore = level * 100;
+    const levelBaseScore = (level - 1) * POINTS_PER_LEVEL;
+    const nextLevelScore = level * POINTS_PER_LEVEL;
     const levelProgress = Math.max(0, score - levelBaseScore);
-    const levelTarget = 100;
+    const levelTarget = POINTS_PER_LEVEL;
     const levelProgressRatio = Math.max(0, Math.min(1, levelProgress / levelTarget));
     const pointsToNextLevel = Math.max(0, nextLevelScore - score);
-    const comboMultiplier = comboStreak >= 5 ? 2.0 : comboStreak >= 3 ? 1.5 : 1.0;
+    const comboMultiplier = comboStreak >= 20 ? 2.0 : comboStreak >= 15 ? 1.5 : comboStreak >= 10 ? 1.25 : comboStreak >= 5 ? 1.0 : 1.0;
 
     ctx.save();
     ctx.fillStyle = "rgba(6, 12, 24, 0.65)";
@@ -1067,7 +1183,7 @@
     ctx.fillText(`${t("hud.correct")}: ${correctHits}`, 610, 27);
     ctx.fillStyle = "#ff93b7";
     ctx.fillText(`${t("hud.wrong")}: ${wrongHits}`, 700, 27);
-    if (comboStreak >= 3) {
+    if (comboStreak >= 5) {
       ctx.fillStyle = "#9de8ff";
       ctx.font = "bold 13px Trebuchet MS";
       ctx.fillText(`${t("hud.combo")} x${comboStreak}`, 610, 47);
@@ -1075,6 +1191,11 @@
     ctx.fillStyle = comboMultiplier > 1 ? "#ffd166" : "rgba(231, 247, 255, 0.72)";
     ctx.font = "bold 12px Trebuchet MS";
     ctx.fillText(`${t("hud.bonus")} x${comboMultiplier.toFixed(1)}`, 700, 47);
+
+    ctx.font = "bold 11px Trebuchet MS";
+    ctx.fillStyle = "rgba(231, 247, 255, 0.85)";
+    const difficultyLabel = t("difficulty." + difficulty);
+    ctx.fillText(`${t("hud.difficulty")}: ${difficultyLabel}`, 14, 52);
 
     const barX = 14;
     const barY = 38;
@@ -1100,7 +1221,8 @@
     if (!running) return;
 
     spawnTimer += dt;
-    const spawnInterval = Math.max(0.48, 1.45 - level * 0.12);
+    const baseSpawnInterval = Math.max(0.48, 1.45 - level * 0.12);
+    const spawnInterval = baseSpawnInterval * getDifficultyConfig().spawnFactor;
     if (spawnTimer >= spawnInterval) {
       spawnTimer = 0;
       spawnPacket();
@@ -1143,6 +1265,7 @@
     drawParticles(dt);
     drawToasts(dt);
     drawHUD();
+    if (running) syncMobileDifficultyState();
 
     requestAnimationFrame(gameLoop);
   }

@@ -649,7 +649,8 @@ body {
 }
 
 .controls button,
-.controls .lang-select {
+.controls .lang-select,
+.controls .difficulty-select {
   border: 1px solid var(--neon-soft);
   border-radius: 8px;
   background: rgba(8, 20, 36, 0.86);
@@ -660,10 +661,16 @@ body {
   white-space: nowrap;
 }
 
-.controls .lang-select {
+.controls .lang-select,
+.controls .difficulty-select {
   min-width: 0;
   max-width: 10rem;
   appearance: auto;
+}
+
+.controls .difficulty-select:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
 }
 
 .hidden {
@@ -716,6 +723,12 @@ body {
   transform: scale(0.95);
   box-shadow: 0 0 20px rgba(40, 215, 255, 0.8);
   background: rgba(40, 215, 255, 0.2);
+}
+
+/* Easy-Modus: Vorschlags-Highlight (korrekter Button) */
+.mobile-btn.suggested {
+  box-shadow: 0 0 20px rgba(89, 255, 154, 0.85);
+  border-color: rgba(89, 255, 154, 0.9);
 }
 
 /* Route 4: Orange (Link-Local Multicast wie Ziel unten) */

@@ -19,6 +19,20 @@ Dieses Repo ist für GitHub Pages vorbereitet (GitHub Actions Workflow in `.gith
 
 Level-Up-Sounds sind sprachabhängige MP3-Dateien (anhand der Spracheinstellung); Kombo-/Router-Sounds sind je eine Datei. Die vollständige Liste mit Dateinamen findest du in [docs/audio-assets.md](docs/audio-assets.md). Die Dateien liegen im Unterordner `sound/` (z. B. `sound/ipv6-track1.mp3`). Ohne diese Dateien laufen die Effekte still (kein Fehler).
 
+### Schwierigkeitsmodi (Easy / Normal / Hard)
+
+Die Schwierigkeit wird im Dropdown neben Sprache und Audio gewählt und ist nur vor Spielstart (oder nach Game Over) änderbar. Die aktive Schwierigkeit wird im HUD angezeigt.
+
+- **Easy**
+  - Route 3 ist deaktiviert: kein Ziel „2a10:42:3::/64“, keine Taste 3, keine Route-3-Pakete.
+  - Langsameres Spiel: längeres Spawn-Intervall, geringere Fallgeschwindigkeit, längere TTL.
+  - Vorschlags-Highlight: der/die korrekten Ziel-Buttons (inkl. gültige bei Spezialpaketen) werden hervorgehoben.
+- **Normal**
+  - Standardverhalten wie bisher (alle fünf Routen, normales Tempo, kein Highlight).
+- **Hard**
+  - Mehr Paketvielfalt: höherer Anteil an Spezial- und Fehlversuch-Paketen, breitere Verteilung.
+  - Fehlerstrafe: bei jedem Fehler (falsche Route, Timeout, Paket verloren) wird der Score auf den Level-Start zurückgesetzt, die Combo auf 0 gesetzt und ein Leben abgezogen.
+
 ### Lokal starten (Quick-Test)
 
 Du kannst die Seite lokal als static files hosten, z.B. mit Python:
