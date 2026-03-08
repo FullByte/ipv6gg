@@ -22,6 +22,7 @@
   <meta name="twitter:description" content="IPv6-Routing als schnelles Browser-Arcade: Pakete korrekt routen, Kombos aufbauen, Highscore knacken." />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%230a0a1a'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%2328d7ff' stroke-width='6'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
+  <script src="i18n.js"></script>
 </head>
 <body>
   <div class="app">
@@ -35,6 +36,12 @@
       <canvas id="game" width="800" height="600"></canvas>
 
       <div class="controls">
+        <select id="langSelect" class="lang-select" aria-label="Sprache wählen">
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="es">🇪🇸 Español</option>
+        </select>
         <button id="musicBtn" aria-label="Musik umschalten">[M]usic: On</button>
         <button id="soundBtn" aria-label="Effekte umschalten">[E]ffekte: On</button>
         <button id="touchBtn" aria-label="Touch-Buttons umschalten">[T]ouch: On</button>
@@ -49,39 +56,45 @@
         <button class="mobile-btn" data-route="4" aria-label="Route 5">5</button>
       </div>
 
-      <audio id="bgm" src="ipv6-track1.mp3" loop preload="auto"></audio>
+      <audio id="bgm" src="sound/ipv6-track1.mp3" loop preload="auto"></audio>
 
       <div class="overlay" id="startOverlay">
         <div class="panel">
           <h1>ipv6gg</h1>
-          <p>Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.</p>
-          <p>Route per Tasten <strong>1-5</strong>, oder <strong>Buttons</strong> (Touch=on) zum passenden Ziel.</p>
-          <p>Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>          
-          <p class="start-help-hint">Weitere Details siehe <a id="startHelpLink" href="#" aria-label="Hilfe anzeigen">[H]ilfe</a></p>
+          <p id="startIntro1">Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.</p>
+          <p id="startIntro2">Route per Tasten <strong>1-5</strong>, oder <strong>Buttons</strong> (Touch=on) zum passenden Ziel.</p>
+          <p id="startIntro3">Longest Prefix Match gewinnt, z.B. <code>2001:db8:1::abcd</code> passt zu <code>/64</code>.</p>
+          <p class="start-help-hint" id="startHelpHint">Weitere Details siehe <a id="startHelpLink" href="#" aria-label="Hilfe anzeigen">[H]ilfe</a></p>
           <button id="startBtn">Spiel starten!</button>
         </div>
       </div>
 
       <div class="overlay hidden" id="endOverlay">
-        <div class="panel">
-          <h2>ERROR: Verbindung getrennt!</h2>
+        <div class="panel" id="endPanel">
+          <h2 id="endTitle">Verbindung getrennt!</h2>
           <p id="endScoreText"></p>
           <p id="endHighscoreText"></p>
           <button id="playAgainBtn">Play Again</button>
+          <button type="button" id="viewLogBtn" class="view-log-btn">Log anzeigen</button>
+        </div>
+        <div class="panel game-log-panel hidden" id="gameLogPanel" role="dialog" aria-labelledby="gameLogTitle">
+          <h2 id="gameLogTitle">Spiel-Log</h2>
+          <ul id="gameLogList" class="game-log-list"></ul>
+          <button type="button" id="closeLogBtn">Schließen</button>
         </div>
       </div>
 
       <div class="overlay hidden" id="helpOverlay">
         <div class="panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
           <h2 id="helpTitle">So funktioniert ipv6gg</h2>
-          <p>Du spielst einen Router und musst jedes einfliegende IPv6-Paket an das richtige Zielnetz schicken, bevor seine Zeit abläuft.</p>
-          <p><strong>Ziel:</strong> Route möglichst viele Pakete korrekt, um Score und Highscore zu steigern. <strong>Steuerung:</strong> Mit <strong>1-5</strong> oder Drag-and-Drop auf eine Route; <strong>Touch</strong> ist standardmäßig aktiv, die großen 1-5 Buttons unter dem Spielfeld lassen sich jederzeit ein/ausblenden.</p>
-          <p><strong>Regel:</strong> Longest Prefix Match gewinnt, also immer das spezifischste passende Präfix. <strong>Routen:</strong> Route 1 und 2 sind /64-Netze, Route 3 ist <code>2a10:42:3::/64</code>, Route 4 ist <strong>Link-Local Multicast</strong> für <code>ff02::1</code>, Route 5 blockt ungültige, nicht zuordenbare Ziele; als Merkhilfe steht bei Route 1-3 im UI zusätzlich <code>Broadcast: ff02::1</code>.</p>
-          <p><strong>Sonderfälle:</strong> Ab Level 3 erscheint <code>ff0e::1</code> und darf auf <strong>Route 1, 2 oder 3</strong>; ab Level 5 treten Fälle für Route 4 und 5 häufiger auf. Das wichtigste Paket ist als <strong>AKTIV</strong> markiert, und Tasten <strong>1-5</strong> wirken immer auf dieses Paket.</p>
-          <p><strong>Punkte:</strong> Korrekte Route +10, korrekter Fehlversuch +5, dazu Kombo-Bonus ab 3 Richtigen in Folge: +10 pro weiterem Kombo-Treffer. <strong>Kombo-Stufen:</strong> 3 = <strong>KOMBO</strong>, 5 = <strong>MEGA KOMBO</strong>, 10 = <strong>GUTER ROUTER</strong>.</p>
-          <p><strong>Level:</strong> Das nächste Level kommt alle 100 Punkte (Level 2 ab 100, Level 3 ab 200, Level 4 ab 300, Level 5 ab 400, danach jeweils +100); pro Level-Up gibt es <strong>+1 Leben</strong>.</p>
-          <p><strong>Fehler:</strong> Falsche Route, Timeout oder verlorenes Paket kostet ein Leben. <strong>Game Over:</strong> Bei 0 Leben endet die Runde, danach kannst du sofort neu starten. <strong>Tipp:</strong> Kurze Präfixe sind allgemeiner, lange präziser; achte zuerst auf den Anfang des IPv6-Blocks.</p>
-          <p>Hotkeys: <strong>Enter</strong> startet Spiel/Restart, <strong>M</strong> Music, <strong>E</strong> Effekte, <strong>T</strong> Touch, <strong>H</strong> Hilfe, <strong>Esc</strong> schließt die Hilfe.</p>
+          <p id="helpP1"></p>
+          <p id="helpP2"></p>
+          <p id="helpP3"></p>
+          <p id="helpP4"></p>
+          <p id="helpP5"></p>
+          <p id="helpP6"></p>
+          <p id="helpP7"></p>
+          <p id="helpHotkeys"></p>
           <button id="closeHelpBtn">Verstanden</button>
         </div>
       </div>

@@ -35,21 +35,6 @@ const PACKET_SHADER_EFFECTS = {
   },
 };
 
-const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-const prefersReducedMotion = reduceMotionQuery.matches;
-const lowCpuCores = typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4;
-const lowDeviceMemory = typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4;
-const autoReducedEffects = prefersReducedMotion || lowCpuCores || lowDeviceMemory;
-
-const urlParams = new URLSearchParams(window.location.search);
-const effectsParam = (urlParams.get("effects") || "").toLowerCase();
-const useReducedEffects =
-  effectsParam === "full"
-    ? false
-    : effectsParam === "reduced"
-      ? true
-      : autoReducedEffects;
-
 const COMBO_TONES = {
   combo: "#6fd6ff",
   isolate: "#6fd6ff",
@@ -79,11 +64,11 @@ function App() {
     ...shaderRuntimeConfig,
     ringColor: color,
     borderColor,
-    noiseWarpEnabled: !useReducedEffects,
-    noiseWarpStrength: useReducedEffects ? 0 : 0.1,
-    diffuseEnabled: !useReducedEffects,
-    blurEnabled: !useReducedEffects,
-    blurRadius: useReducedEffects ? 0 : 0.5,
+    noiseWarpEnabled: true,
+    noiseWarpStrength: 0.1,
+    diffuseEnabled: true,
+    blurEnabled: true,
+    blurRadius: 0.5,
   };
 
   return React.createElement(
@@ -101,17 +86,6 @@ const setStatus = (text, isError = false) => {
   statusEl.textContent = text;
   statusEl.style.display = text ? "block" : "none";
   statusEl.style.color = isError ? "#ff7f7f" : "#9fb7d9";
-};
-
-const setModeBadge = () => {
-  if (!modeEl) return;
-  if (useReducedEffects) {
-    modeEl.textContent = "Performance: Reduced";
-    modeEl.style.display = "block";
-  } else {
-    modeEl.textContent = "";
-    modeEl.style.display = "none";
-  }
 };
 
 const renderShader = () => {
@@ -169,7 +143,7 @@ const applyPacketShaderEffect = (outcome) => {
 
   packetLayerState.tint = effect.tint;
 
-  const kick = useReducedEffects ? effect.kick * 0.7 : effect.kick;
+  const kick = effect.kick;
   const nextTarget = Math.max(packetLayerState.targetStrength, packetLayerState.strength) + kick;
   packetLayerState.targetStrength = Math.min(0.45, nextTarget);
 
@@ -180,7 +154,7 @@ const applyPacketShaderEffect = (outcome) => {
 const pushRingBurst = (tone = "combo", durationMs = 900) => {
   if (!shaderPulseLayerEl) return;
   const color = COMBO_TONES[tone] || COMBO_TONES.combo;
-  const effectiveDuration = useReducedEffects ? Math.min(durationMs, 700) : durationMs;
+  const effectiveDuration = durationMs;
   const rotation = `${Math.round(Math.random() * 34 - 17)}deg`;
 
   const pulse = document.createElement("div");
@@ -230,7 +204,8 @@ const showComboBadge = (text, tone = "combo") => {
   comboMessageTimeout = setTimeout(() => {
     modeEl.classList.remove("combo-popup");
     modeEl.style.color = "#c9dcff";
-    setModeBadge();
+    modeEl.textContent = "";
+    modeEl.style.display = "none";
   }, 1200);
 };
 
@@ -315,7 +290,6 @@ try {
   root = createRoot(shaderRootEl);
   root.render(React.createElement(App));
   applyPacketLayerStyles();
-  setModeBadge();
   setStatus("");
 } catch (error) {
   setStatus(`Render error: ${error?.message ?? String(error)}`, true);

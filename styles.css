@@ -584,6 +584,59 @@ body {
   filter: brightness(1.15);
 }
 
+.view-log-btn {
+  margin-left: 10px;
+}
+
+.game-log-panel {
+  width: min(90%, 560px);
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.game-log-panel h2 {
+  flex-shrink: 0;
+}
+
+.game-log-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: 50vh;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.game-log-entry {
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 3px solid rgba(40, 215, 255, 0.4);
+}
+
+.game-log-entry.game-log-hit,
+.game-log-entry.game-log-isolate {
+  border-left-color: var(--ok);
+  background: rgba(89, 255, 154, 0.08);
+}
+
+.game-log-entry.game-log-miss,
+.game-log-entry.game-log-timeout,
+.game-log-entry.game-log-lost {
+  border-left-color: var(--bad);
+  background: rgba(255, 76, 138, 0.08);
+}
+
+.game-log-panel button {
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+
 .controls {
   position: fixed;
   top: calc(12px + env(safe-area-inset-top, 0px));
@@ -595,7 +648,8 @@ body {
   z-index: 5;
 }
 
-.controls button {
+.controls button,
+.controls .lang-select {
   border: 1px solid var(--neon-soft);
   border-radius: 8px;
   background: rgba(8, 20, 36, 0.86);
@@ -603,6 +657,13 @@ body {
   padding: 6px 10px;
   font-size: 12px;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.controls .lang-select {
+  min-width: 0;
+  max-width: 10rem;
+  appearance: auto;
 }
 
 .hidden {
@@ -655,6 +716,34 @@ body {
   transform: scale(0.95);
   box-shadow: 0 0 20px rgba(40, 215, 255, 0.8);
   background: rgba(40, 215, 255, 0.2);
+}
+
+/* Route 4: Orange (Link-Local Multicast wie Ziel unten) */
+.mobile-btn[data-route="3"] {
+  border-color: #ffa64d;
+  color: #ffa64d;
+  box-shadow: 0 0 12px rgba(255, 166, 77, 0.4);
+}
+.mobile-btn[data-route="3"]:hover {
+  box-shadow: 0 0 18px rgba(255, 166, 77, 0.6);
+}
+.mobile-btn[data-route="3"]:active {
+  box-shadow: 0 0 20px rgba(255, 166, 77, 0.8);
+  background: rgba(255, 166, 77, 0.2);
+}
+
+/* Route 5: Rot (Fehlversuch wie Ziel unten) */
+.mobile-btn[data-route="4"] {
+  border-color: #ff4c8a;
+  color: #ff4c8a;
+  box-shadow: 0 0 12px rgba(255, 76, 138, 0.4);
+}
+.mobile-btn[data-route="4"]:hover {
+  box-shadow: 0 0 18px rgba(255, 76, 138, 0.6);
+}
+.mobile-btn[data-route="4"]:active {
+  box-shadow: 0 0 20px rgba(255, 76, 138, 0.8);
+  background: rgba(255, 76, 138, 0.2);
 }
 
 @media (max-width: 700px) {

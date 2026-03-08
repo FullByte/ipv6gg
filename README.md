@@ -15,6 +15,10 @@ Dieses Repo ist für GitHub Pages vorbereitet (GitHub Actions Workflow in `.gith
 - **Deploy auslösen**: Änderungen committen und nach `main` pushen. Danach baut und deployt die Action automatisch.
 - **URL**: Nach dem ersten Deploy findest du die URL in der Action-Ausgabe und unter `Settings` → `Pages`.
 
+### Audio-Assets (Effekte)
+
+Level-Up-Sounds sind sprachabhängige MP3-Dateien (anhand der Spracheinstellung); Kombo-/Router-Sounds sind je eine Datei. Die vollständige Liste mit Dateinamen findest du in [docs/audio-assets.md](docs/audio-assets.md). Die Dateien liegen im Unterordner `sound/` (z. B. `sound/ipv6-track1.mp3`). Ohne diese Dateien laufen die Effekte still (kein Fehler).
+
 ### Lokal starten (Quick-Test)
 
 Du kannst die Seite lokal als static files hosten, z.B. mit Python:

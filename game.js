@@ -1,4 +1,5 @@
 (() => {
+  const t = (key, params) => window.i18n.t(key, params);
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
   const startOverlay = document.getElementById("startOverlay");
@@ -7,11 +8,19 @@
   const playAgainBtn = document.getElementById("playAgainBtn");
   const endScoreText = document.getElementById("endScoreText");
   const endHighscoreText = document.getElementById("endHighscoreText");
+  const endTitle = document.getElementById("endTitle");
+  const endPanel = document.getElementById("endPanel");
+  const viewLogBtn = document.getElementById("viewLogBtn");
+  const gameLogPanel = document.getElementById("gameLogPanel");
+  const gameLogList = document.getElementById("gameLogList");
+  const closeLogBtn = document.getElementById("closeLogBtn");
+  const gameLogTitle = document.getElementById("gameLogTitle");
   const musicBtn = document.getElementById("musicBtn");
   const soundBtn = document.getElementById("soundBtn");
   const touchBtn = document.getElementById("touchBtn");
   const helpBtn = document.getElementById("helpBtn");
   const startHelpLink = document.getElementById("startHelpLink");
+  const langSelect = document.getElementById("langSelect");
   const bgm = document.getElementById("bgm");
   const impactFlash = document.getElementById("impactFlash");
   const mobileButtons = document.getElementById("mobileButtons");
@@ -33,6 +42,7 @@
   let packets = [];
   let particles = [];
   let toasts = [];
+  let gameLog = [];
   let level = 1;
   let score = 0;
   let lives = 3;
@@ -48,11 +58,16 @@
   let pointer = { x: 0, y: 0 };
   let touchEnabled = true;
   let musicEnabled = true;
-  let soundEnabled = true;
+  const SOUND_MODES = ["person", "effekt", "off"];
+  let soundMode = "person";
   let audioCtx = null;
   let targetPressFx = [0, 0, 0, 0, 0];
 
   const COMBO_BONUS = 10;
+  /** Level-Up MP3 variant IDs 0–9 pro Sprache (levelup-{lang}-0.mp3 … levelup-{lang}-9.mp3). Pro Sprache jede Variante höchstens einmal pro Runde, dann neu mischen. */
+  const LEVELUP_VARIANT_IDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  /** Pro Sprache: Set der in dieser Runde bereits gespielten Varianten. */
+  let levelupPlayedThisRound = {};
 
   function emitShaderCombo(label, streak, tone = "combo") {
     window.dispatchEvent(
@@ -90,23 +105,41 @@
   function awardComboBonus(packet, tone = "combo") {
     if (comboStreak < 3) return;
     score += COMBO_BONUS;
-    playComboSignatureSound(comboStreak, tone);
+    if (comboStreak === 3) {
+      playEffectMp3("combo");
+      if (soundMode === "effekt") playComboSignatureSound(3, "combo");
+    } else if (comboStreak === 5) {
+      playEffectMp3("mega");
+      if (soundMode === "effekt") playComboSignatureSound(5, "mega");
+    } else if (comboStreak === 10) {
+      playEffectMp3("router");
+      if (soundMode === "effekt") playComboSignatureSound(10, "router");
+    } else if (comboStreak === 20) {
+      playEffectMp3("monster");
+      if (soundMode === "effekt") playComboSignatureSound(20, "monster");
+    } else if (soundMode === "effekt") {
+      playGenericComboTick();
+    }
     const centerX = packet.x + packet.w / 2;
     const centerY = packet.y + packet.h / 2;
     createParticles(centerX, centerY, "#6fd6ff");
-    addToast(`Kombo +${COMBO_BONUS}`, "#9de8ff", 1.8);
+    addToast(t("toast.comboBonus", { n: COMBO_BONUS }), "#9de8ff", 1.8);
 
+    const comboLabel = (key) => t(key).replace(/!$/, "");
     if (comboStreak === 3) {
-      emitShaderCombo("KOMBO", comboStreak, tone);
-      addToast("KOMBO!", "#7fdfff", 2.2);
+      emitShaderCombo(comboLabel("toast.combo"), comboStreak, tone);
+      addToast(t("toast.combo"), "#7fdfff", 2.2);
     } else if (comboStreak === 5) {
-      emitShaderCombo("MEGA KOMBO", comboStreak, "mega");
-      addToast("MEGA KOMBO!", "#ffd166", 2.4);
+      emitShaderCombo(comboLabel("toast.megaCombo"), comboStreak, "mega");
+      addToast(t("toast.megaCombo"), "#ffd166", 2.4);
     } else if (comboStreak === 10) {
-      emitShaderCombo("GUTER ROUTER", comboStreak, "router");
-      addToast("GUTER ROUTER!", "#ffb86c", 2.6);
+      emitShaderCombo(comboLabel("toast.goodRouter"), comboStreak, "router");
+      addToast(t("toast.goodRouter"), "#ffb86c", 2.6);
+    } else if (comboStreak === 20) {
+      emitShaderCombo(comboLabel("toast.monsterRouter"), comboStreak, "monster");
+      addToast(t("toast.monsterRouter"), "#e879f9", 2.8);
     } else {
-      emitShaderCombo(`KOMBO x${comboStreak}`, comboStreak, tone);
+      emitShaderCombo(`${comboLabel("toast.combo")} x${comboStreak}`, comboStreak, tone);
     }
   }
 
@@ -123,21 +156,65 @@
   }
 
   function syncMusicButton() {
-    musicBtn.textContent = `[M]usic: ${musicEnabled ? "On" : "Off"}`;
+    musicBtn.textContent = `${t("btn.music")}: ${musicEnabled ? "On" : "Off"}`;
+    musicBtn.setAttribute("aria-label", t("aria.music"));
   }
 
   function syncSoundButton() {
-    soundBtn.textContent = `[E]ffekte: ${soundEnabled ? "On" : "Off"}`;
+    soundBtn.textContent = `${t("btn.sound")}: ${t("soundMode." + soundMode)}`;
+    soundBtn.setAttribute("aria-label", t("aria.sound"));
   }
 
   function syncTouchButton() {
-    touchBtn.textContent = `[T]ouch: ${touchEnabled ? "On" : "Off"}`;
+    touchBtn.textContent = `${t("btn.touch")}: ${touchEnabled ? "On" : "Off"}`;
+    touchBtn.setAttribute("aria-label", t("aria.touch"));
     if (mobileButtons) {
       if (touchEnabled) {
         mobileButtons.classList.add("touch-enabled");
       } else {
         mobileButtons.classList.remove("touch-enabled");
       }
+    }
+  }
+
+  function applyUITranslations() {
+    if (langSelect) {
+      langSelect.value = window.i18n.getLanguage();
+      langSelect.setAttribute("aria-label", t("aria.lang"));
+    }
+    const startIntro1El = document.getElementById("startIntro1");
+    const startIntro2El = document.getElementById("startIntro2");
+    const startIntro3El = document.getElementById("startIntro3");
+    const startHelpHintEl = document.getElementById("startHelpHint");
+    if (startIntro1El) startIntro1El.textContent = t("start.intro1");
+    if (startIntro2El) startIntro2El.textContent = t("start.intro2");
+    if (startIntro3El) startIntro3El.textContent = t("start.intro3");
+    if (startHelpHintEl && startHelpHintEl.firstChild) {
+      startHelpHintEl.firstChild.nodeValue = t("start.helpHint") + " ";
+      if (startHelpLink) {
+        startHelpLink.textContent = t("start.helpLink");
+        startHelpLink.setAttribute("aria-label", t("aria.helpLink"));
+      }
+    }
+    if (startBtn) startBtn.textContent = t("start.btn");
+    if (endTitle) endTitle.textContent = t("end.title");
+    if (playAgainBtn) playAgainBtn.textContent = t("end.btn");
+    if (viewLogBtn) viewLogBtn.textContent = t("log.viewLog");
+    if (gameLogTitle) gameLogTitle.textContent = t("log.title");
+    if (closeLogBtn) closeLogBtn.textContent = t("log.close");
+    const helpTitleEl = document.getElementById("helpTitle");
+    if (helpTitleEl) helpTitleEl.textContent = t("help.title");
+    ["helpP1", "helpP2", "helpP3", "helpP4", "helpP5", "helpP6", "helpP7", "helpHotkeys"].forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = t(i < 7 ? "help.p" + (i + 1) : "help.hotkeys");
+    });
+    if (closeHelpBtn) closeHelpBtn.textContent = t("help.close");
+    syncMusicButton();
+    syncSoundButton();
+    syncTouchButton();
+    if (helpBtn) {
+      helpBtn.textContent = t("btn.help");
+      helpBtn.setAttribute("aria-label", t("aria.help"));
     }
   }
 
@@ -175,7 +252,7 @@
   }
 
   function beep(freq, duration, type, volume = 0.102) {
-    if (!soundEnabled || !audioCtx) return;
+    if (soundMode === "off" || !audioCtx) return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = type;
@@ -191,7 +268,7 @@
   }
 
   function playChiptune(notes, tempo = 0.08) {
-    if (!soundEnabled || !audioCtx) return;
+    if (soundMode !== "effekt" || !audioCtx) return;
     notes.forEach((note, i) => {
       setTimeout(() => {
         beep(note.freq, note.dur || tempo, note.type || "square", note.vol || 0.11);
@@ -220,7 +297,17 @@
   }
 
   function playComboSignatureSound(streak, tone = "combo") {
-    if (!soundEnabled) return;
+    if (soundMode !== "effekt") return;
+    if (tone === "monster" || streak >= 20) {
+      playChiptune([
+        { freq: 392, dur: 0.06, vol: 0.12 },
+        { freq: 523, dur: 0.06, vol: 0.12 },
+        { freq: 659, dur: 0.07, vol: 0.13 },
+        { freq: 784, dur: 0.07, vol: 0.13 },
+        { freq: 988, dur: 0.1, vol: 0.14 }
+      ], 0.055);
+      return;
+    }
     if (tone === "router" || streak >= 10) {
       playChiptune([
         { freq: 659, dur: 0.07, vol: 0.12 },
@@ -242,6 +329,61 @@
       { freq: 523, dur: 0.06, vol: 0.1 },
       { freq: 659, dur: 0.08, vol: 0.11 }
     ], 0.055);
+  }
+
+  function playGenericComboTick() {
+    if (soundMode !== "effekt" || !audioCtx) return;
+    beep(660, 0.06, "square", 0.08);
+    setTimeout(() => { if (soundMode === "effekt" && audioCtx) beep(880, 0.05, "square", 0.07); }, 55);
+  }
+
+  const effectQueue = [];
+  let effectPlaying = false;
+
+  function playEffectUrl(url) {
+    if (soundMode !== "person") return;
+    effectQueue.push(url);
+    processEffectQueue();
+  }
+
+  function processEffectQueue() {
+    if (effectPlaying || effectQueue.length === 0) return;
+    effectPlaying = true;
+    const url = effectQueue.shift();
+    const el = new Audio(url);
+    el.volume = 0.5;
+    const next = () => {
+      effectPlaying = false;
+      processEffectQueue();
+    };
+    el.onended = next;
+    el.onerror = next;
+    el.play().catch(next);
+  }
+
+  function playEffectMp3(effectKey) {
+    if (soundMode !== "person") return;
+    playEffectUrl(`sound/${effectKey}.mp3`);
+  }
+
+  function getNextLevelUpVariant(lang) {
+    if (!levelupPlayedThisRound[lang]) levelupPlayedThisRound[lang] = new Set();
+    const played = levelupPlayedThisRound[lang];
+    const available = LEVELUP_VARIANT_IDS.filter((id) => !played.has(id));
+    if (available.length === 0) {
+      played.clear();
+      available.push(...LEVELUP_VARIANT_IDS);
+    }
+    const chosen = available[Math.floor(Math.random() * available.length)];
+    played.add(chosen);
+    return chosen;
+  }
+
+  function playLevelUpMp3() {
+    if (soundMode !== "person") return;
+    const lang = window.i18n ? window.i18n.getLanguage() : "de";
+    const variant = getNextLevelUpVariant(lang);
+    playEffectUrl(`sound/levelup-${lang}-${variant}.mp3`);
   }
 
   function addToast(text, color = neon, life = 1.2) {
@@ -453,10 +595,18 @@
     });
   }
 
+  function pushGameLog(entry) {
+    gameLog.push(entry);
+  }
+
   function resetGame() {
     packets = [];
     particles = [];
     toasts = [];
+    gameLog = [];
+    effectQueue.length = 0;
+    effectPlaying = false;
+    levelupPlayedThisRound = {};
     level = 1;
     score = 0;
     lives = 3;
@@ -474,7 +624,7 @@
     startOverlay.classList.add("hidden");
     endOverlay.classList.add("hidden");
     helpOverlay.classList.add("hidden");
-    addToast("Route aktiv. Drücke 1-5 für das aktive Paket.", neon, 1.8);
+    addToast(t("toast.routeActive"), neon, 1.8);
   }
 
   function openHelp() {
@@ -493,9 +643,62 @@
       highscore = score;
       localStorage.setItem(STORAGE_KEY, String(highscore));
     }
-    endScoreText.textContent = `Score: ${score}`;
-    endHighscoreText.textContent = `Highscore: ${highscore}`;
+    endScoreText.textContent = `${t("end.score")}: ${score}`;
+    endHighscoreText.textContent = `${t("end.highscore")}: ${highscore}`;
+    if (endPanel) endPanel.classList.remove("hidden");
+    if (gameLogPanel) gameLogPanel.classList.add("hidden");
     endOverlay.classList.remove("hidden");
+  }
+
+  function renderGameLog() {
+    if (!gameLogList) return;
+    gameLogList.innerHTML = "";
+    const comboLine = (combo) => (combo > 0 ? t("log.comboLost", { combo }) : t("log.comboLine"));
+    const livesChangeStr = (delta) => (delta === -1 ? t("log.livesChangeMinus") : delta === 1 ? t("log.livesChangePlus") : t("log.livesChangeZero"));
+    gameLog.forEach((entry) => {
+      const li = document.createElement("li");
+      let text = "";
+      const points = entry.points != null ? entry.points : 0;
+      const combo = entry.combo != null ? entry.combo : 0;
+      const score = entry.score != null ? entry.score : 0;
+      const lives = entry.lives != null ? entry.lives : 0;
+      const livesDelta = entry.livesDelta != null ? entry.livesDelta : 0;
+      const livesWithTotal = t("log.livesWithTotal", { livesChange: livesChangeStr(livesDelta), lives });
+      if (entry.type === "hit") {
+        text = t("log.entryHit", { address: entry.address, target: entry.targetLabel || entry.targetKey, points, score, combo, livesWithTotal });
+      } else if (entry.type === "miss") {
+        const chosen = entry.chosenLabel != null ? entry.chosenLabel : (entry.chosenTargetIndex === 4 ? t("targets.fail") : "-");
+        const correct = entry.correctLabel != null ? entry.correctLabel : "-";
+        const reason = entry.reasonKey ? t(entry.reasonKey) : "";
+        text = t("log.entryMiss", { address: entry.address, chosen, correct, reason, comboLine: comboLine(entry.combo != null ? entry.combo : 0), livesWithTotal });
+      } else if (entry.type === "isolate") {
+        text = t("log.entryIsolate", { address: entry.address, points, score, combo, livesWithTotal });
+      } else if (entry.type === "timeout") {
+        const correct = entry.correctLabel != null ? entry.correctLabel : "-";
+        text = t("log.entryTimeout", { address: entry.address, correct, comboLine: comboLine(entry.combo != null ? entry.combo : 0), livesWithTotal });
+      } else if (entry.type === "lost") {
+        const correct = entry.correctLabel != null ? entry.correctLabel : "-";
+        text = t("log.entryLost", { address: entry.address, correct, comboLine: comboLine(entry.combo != null ? entry.combo : 0), livesWithTotal });
+      } else {
+        text = entry.address || "";
+      }
+      li.textContent = text;
+      li.className = "game-log-entry game-log-" + (entry.type || "");
+      gameLogList.appendChild(li);
+    });
+  }
+
+  function openGameLog() {
+    if (gameLogTitle) gameLogTitle.textContent = t("log.title");
+    if (closeLogBtn) closeLogBtn.textContent = t("log.close");
+    renderGameLog();
+    if (endPanel) endPanel.classList.add("hidden");
+    if (gameLogPanel) gameLogPanel.classList.remove("hidden");
+  }
+
+  function closeGameLog() {
+    if (gameLogPanel) gameLogPanel.classList.add("hidden");
+    if (endPanel) endPanel.classList.remove("hidden");
   }
 
   function levelCheck() {
@@ -503,9 +706,10 @@
     while (targetLevel > level) {
       level += 1;
       lives += 1;
-      addToast(`Level ${level}: Mehr Traffic im Netz!`, "#ffd166", 1.4);
-      addToast("Level Up Bonus: +1 Leben", "#a7ff8a", 1.2);
-      playLevelUpSound();
+      addToast(t("toast.levelUp", { level }), "#ffd166", 1.4);
+      addToast(t("toast.levelBonus"), "#a7ff8a", 1.2);
+      if (soundMode === "person") playLevelUpMp3();
+      if (soundMode === "effekt") playLevelUpSound();
       triggerImpact("levelup");
       emitShaderLevelUp(level);
     }
@@ -515,24 +719,32 @@
     score += 10;
     correctHits += 1;
     comboStreak += 1;
+    const hitPoints = 10 + (comboStreak >= 3 ? COMBO_BONUS : 0);
     emitShaderPacketFeedback("hit", { target: target.label, combo: comboStreak });
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, okColor);
-    addToast(`Praefix match! -> ${target.label}`, okColor, 3.5);
+    addToast(t("toast.prefixMatch", { label: target.label }), okColor, 3.5);
     triggerImpact("ok");
     beep(740, 0.09, "square", 0.108);
     beep(1080, 0.08, "square", 0.09);
     awardComboBonus(packet);
+    const livesBeforeLevel = lives;
     levelCheck();
+    const hitLivesDelta = lives - livesBeforeLevel;
+    pushGameLog({ type: "hit", address: packet.address, targetKey: target.key, targetLabel: target.label, combo: comboStreak, points: hitPoints, livesDelta: hitLivesDelta, lives, score });
     logScoreProgress(`hit:${target.key}`);
   }
 
-  function scoreMiss(packet, reason) {
+  function scoreMiss(packet, reason, chosenTargetIndex) {
     lives -= 1;
     comboStreak = 0;
     wrongHits += 1;
+    const chosenLabel = chosenTargetIndex >= 0 && targets[chosenTargetIndex] ? (chosenTargetIndex === 4 ? t("targets.fail") : targets[chosenTargetIndex].label) : null;
+    const correctLabel = packet.correctTarget >= 0 && targets[packet.correctTarget] ? targets[packet.correctTarget].label : null;
+    const comboBeforeReset = comboStreak;
+    pushGameLog({ type: "miss", address: packet.address, reasonKey: reason, chosenTargetIndex, chosenLabel, correctTarget: packet.correctTarget, correctLabel, combo: comboBeforeReset, points: 0, livesDelta: -1, lives, score });
     emitShaderPacketFeedback("miss", { reason });
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, badColor);
-    addToast(reason, badColor, 3.8);
+    addToast(typeof reason === "string" && reason.startsWith("toast.") ? t(reason) : reason, badColor, 3.8);
     triggerImpact("bad");
     beep(210, 0.18, "sawtooth", 0.114);
     beep(105, 0.25, "square", 0.095);
@@ -548,7 +760,7 @@
     flashTargetPress(targetIndex);
 
     if (!target) {
-      scoreMiss(packet, "Unbekanntes Ziel.");
+      scoreMiss(packet, "toast.unknownTarget", -1);
       return;
     }
 
@@ -556,7 +768,7 @@
       if (packet.acceptedTargets.includes(targetIndex)) {
         scoreHit(packet, target);
       } else {
-        scoreMiss(packet, "Sonderpaket: Hier sind nur Route 1, 2 oder 3 gueltig.");
+        scoreMiss(packet, "toast.specialOnly123", targetIndex);
       }
       return;
     }
@@ -566,16 +778,20 @@
         score += 5;
         correctHits += 1;
         comboStreak += 1;
+        const isolatePoints = 5 + (comboStreak >= 3 ? COMBO_BONUS : 0);
         emitShaderPacketFeedback("isolate", { combo: comboStreak });
-        addToast("Fehlversuch korrekt isoliert (+5)", "#7dffc1", 3.2);
+        addToast(t("toast.isolate"), "#7dffc1", 3.2);
         createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, "#7dffc1");
         triggerImpact("ok");
         beep(560, 0.08, "square", 0.09);
         awardComboBonus(packet, "isolate");
+        const livesBeforeLevel = lives;
         levelCheck();
+        const isolateLivesDelta = lives - livesBeforeLevel;
+        pushGameLog({ type: "isolate", address: packet.address, combo: comboStreak, points: isolatePoints, livesDelta: isolateLivesDelta, lives, score });
         logScoreProgress("isolate");
       } else {
-        scoreMiss(packet, "Falsch: Paket haette geroutet werden koennen.");
+        scoreMiss(packet, "toast.wrongCouldRoute", 4);
       }
       return;
     }
@@ -583,7 +799,7 @@
     if (packet.correctTarget === targetIndex) {
       scoreHit(packet, target);
     } else {
-      scoreMiss(packet, "Falsches Netz gewaehlt.");
+      scoreMiss(packet, "toast.wrongNetwork", targetIndex);
     }
   }
 
@@ -703,8 +919,8 @@
     layoutTargets();
     const now = performance.now();
     for (let i = 0; i < targets.length; i += 1) {
-      const t = targets[i];
-      const r = t.rect;
+      const tr = targets[i];
+      const r = tr.rect;
       const hover = pointer.x >= r.x && pointer.x <= r.x + r.w && pointer.y >= r.y && pointer.y <= r.y + r.h;
       const isFail = i === 4;
       const isMulticast = i === 3;
@@ -727,10 +943,11 @@
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#e7f7ff";
       ctx.font = "bold 14px Trebuchet MS";
-      ctx.fillText(`[${t.key}] ${t.label}`, r.x + 10, r.y + 30);
+      const displayLabel = i === 4 ? t("targets.fail") : tr.label;
+      ctx.fillText(`[${tr.key}] ${displayLabel}`, r.x + 10, r.y + 30);
       ctx.font = "12px Trebuchet MS";
       ctx.fillStyle = "rgba(231, 247, 255, 0.78)";
-      const subtitle = i <= 2 ? "Broadcast: ff0e::1" : i === 3 ? "Link-Local Multicast" : "Block ungültige Pakete";
+      const subtitle = i <= 2 ? t("targets.subtitleBroadcast") : i === 3 ? t("targets.subtitleMulticast") : t("targets.subtitleBlock");
       ctx.fillText(subtitle, r.x + 10, r.y + 52);
       ctx.restore();
     }
@@ -772,7 +989,7 @@
       if (isPriority) {
         ctx.fillStyle = "#ffd166";
         ctx.font = "bold 10px Trebuchet MS";
-        ctx.fillText("AKTIV", p.x + p.w - 38, p.y + 10);
+        ctx.fillText(t("packet.active"), p.x + p.w - 38, p.y + 10);
       }
 
       ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
@@ -841,23 +1058,23 @@
 
     ctx.fillStyle = "#e7f7ff";
     ctx.font = "bold 18px Trebuchet MS";
-    ctx.fillText(`Score: ${score}`, 14, 27);
-    ctx.fillText(`Leben: ${lives}`, 180, 27);
-    ctx.fillText(`Level: ${level}`, 310, 27);
-    ctx.fillText(`Highscore: ${highscore}`, 430, 27);
+    ctx.fillText(`${t("hud.score")}: ${score}`, 14, 27);
+    ctx.fillText(`${t("hud.lives")}: ${lives}`, 180, 27);
+    ctx.fillText(`${t("hud.level")}: ${level}`, 310, 27);
+    ctx.fillText(`${t("hud.highscore")}: ${highscore}`, 430, 27);
     ctx.font = "bold 14px Trebuchet MS";
     ctx.fillStyle = "#9bffcb";
-    ctx.fillText(`Richtig: ${correctHits}`, 610, 27);
+    ctx.fillText(`${t("hud.correct")}: ${correctHits}`, 610, 27);
     ctx.fillStyle = "#ff93b7";
-    ctx.fillText(`Falsch: ${wrongHits}`, 700, 27);
+    ctx.fillText(`${t("hud.wrong")}: ${wrongHits}`, 700, 27);
     if (comboStreak >= 3) {
       ctx.fillStyle = "#9de8ff";
       ctx.font = "bold 13px Trebuchet MS";
-      ctx.fillText(`KOMBO x${comboStreak}`, 610, 47);
+      ctx.fillText(`${t("hud.combo")} x${comboStreak}`, 610, 47);
     }
     ctx.fillStyle = comboMultiplier > 1 ? "#ffd166" : "rgba(231, 247, 255, 0.72)";
     ctx.font = "bold 12px Trebuchet MS";
-    ctx.fillText(`Bonus x${comboMultiplier.toFixed(1)}`, 700, 47);
+    ctx.fillText(`${t("hud.bonus")} x${comboMultiplier.toFixed(1)}`, 700, 47);
 
     const barX = 14;
     const barY = 38;
@@ -872,7 +1089,7 @@
     ctx.font = "bold 11px Trebuchet MS";
     ctx.fillStyle = "#fff7d6";
     ctx.fillText(
-      `Nächstes Level in ${pointsToNextLevel} Punkten (${levelProgress}/${levelTarget})`,
+      t("hud.nextLevel", { points: pointsToNextLevel, progress: levelProgress, target: levelTarget }),
       barX + 8,
       barY + 10
     );
@@ -899,12 +1116,14 @@
       }
 
       if (p.timeLeft <= 0) {
-        scoreMiss(p, "Timeout: Paket verworfen.");
+        pushGameLog({ type: "timeout", address: p.address, correctTarget: p.correctTarget, correctLabel: p.correctTarget >= 0 && targets[p.correctTarget] ? targets[p.correctTarget].label : null, combo: comboStreak, points: 0, livesDelta: -1, lives: lives - 1, score });
+        scoreMiss(p, "toast.timeout", -1);
         continue;
       }
 
       if (p.y > GAME_H + 20) {
-        scoreMiss(p, "Paket verloren.");
+        pushGameLog({ type: "lost", address: p.address, correctTarget: p.correctTarget, correctLabel: p.correctTarget >= 0 && targets[p.correctTarget] ? targets[p.correctTarget].label : null, combo: comboStreak, points: 0, livesDelta: -1, lives: lives - 1, score });
+        scoreMiss(p, "toast.packetLost", -1);
         continue;
       }
 
@@ -946,6 +1165,13 @@
     startGame();
   });
 
+  if (viewLogBtn) {
+    viewLogBtn.addEventListener("click", () => openGameLog());
+  }
+  if (closeLogBtn) {
+    closeLogBtn.addEventListener("click", () => closeGameLog());
+  }
+
   musicBtn.addEventListener("click", () => {
     musicEnabled = !musicEnabled;
     if (musicEnabled) {
@@ -958,12 +1184,13 @@
 
   soundBtn.addEventListener("click", () => {
     initAudio();
-    soundEnabled = !soundEnabled;
+    const idx = SOUND_MODES.indexOf(soundMode);
+    soundMode = SOUND_MODES[(idx + 1) % SOUND_MODES.length];
     syncSoundButton();
-    if (soundEnabled && audioCtx && audioCtx.state === "suspended") {
+    if (soundMode !== "off" && audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume();
     }
-    if (soundEnabled) beep(520, 0.08, "square", 0.09);
+    if (soundMode === "effekt") beep(520, 0.08, "square", 0.09);
   });
 
   touchBtn.addEventListener("click", () => {
@@ -1020,9 +1247,18 @@
       }
       if (!endOverlay.classList.contains("hidden")) {
         ev.preventDefault();
-        playAgainBtn.click();
+        if (gameLogPanel && !gameLogPanel.classList.contains("hidden")) {
+          closeGameLog();
+        } else {
+          playAgainBtn.click();
+        }
         return;
       }
+    }
+    if (ev.key === "Escape" && endOverlay && !endOverlay.classList.contains("hidden") && gameLogPanel && !gameLogPanel.classList.contains("hidden")) {
+      ev.preventDefault();
+      closeGameLog();
+      return;
     }
 
     tryStartMusic();
@@ -1068,14 +1304,19 @@
     };
   }
 
-  addToast("Willkommen bei ipv6gg", neon, 2.0);
+  addToast(t("toast.welcome"), neon, 2.0);
   layoutTargets();
+  if (langSelect) {
+    langSelect.value = window.i18n.getLanguage();
+    langSelect.addEventListener("change", () => {
+      window.i18n.setLanguage(langSelect.value);
+      applyUITranslations();
+    });
+  }
+  window.addEventListener("ipv6gg:lang", applyUITranslations);
   window.addEventListener("pointerdown", tryStartMusic, { passive: true });
   window.addEventListener("touchstart", tryStartMusic, { passive: true });
-  syncMusicButton();
-  syncSoundButton();
-  syncTouchButton();
-  helpBtn.textContent = "[H]ilfe";
+  applyUITranslations();
   requestAnimationFrame((ts) => {
     lastTime = ts;
     gameLoop(ts);
