@@ -1478,7 +1478,12 @@
     beep(75, 0.28, "triangle", 0.09);
     logScoreProgress("miss");
     if (lives <= 0) {
-      endGame();
+      if (tutorialMode) {
+        // Tutorial should remain fail-safe: mistakes still cost lives, but never hard-stop the run.
+        lives = 3;
+      } else {
+        endGame();
+      }
     }
   }
 
