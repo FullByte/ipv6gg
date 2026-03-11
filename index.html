@@ -79,6 +79,9 @@
           <h2 id="endTitle">Verbindung getrennt!</h2>
           <p id="endScoreText"></p>
           <p id="endHighscoreText"></p>
+          <div class="end-stats">
+            <div class="chart-wrap"><canvas id="routeStatsChart"></canvas></div>
+          </div>
           <button id="playAgainBtn">Play Again</button>
           <button type="button" id="viewLogBtn" class="view-log-btn">Log anzeigen</button>
         </div>
@@ -107,6 +110,7 @@
   </div>
 
   <script type="module" src="shader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="game.js"></script>
   <script defer src="https://umami.0xfab1.net/script.js" data-website-id="a9431491-8028-44e0-b5d5-46417644cd99"></script>
 </body>

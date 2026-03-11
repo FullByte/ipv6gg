@@ -9,7 +9,9 @@
   const strings = {
     de: {
       langName: "Deutsch",
-      btn: { music: "[M]usic", sound: "[E]ffekte", touch: "[T]ouch", help: "[H]ilfe" },
+      btn: { music: "[M]usik", sound: "[E]ffekte", touch: "[T]ouch", help: "[H]ilfe" },
+      hotkey: { music: "m", sound: "e", touch: "t", help: "h" },
+      toggle: { on: "An", off: "Aus" },
       aria: { music: "Musik umschalten", sound: "Effekte umschalten", touch: "Touch-Buttons umschalten", help: "Spielhilfe anzeigen", lang: "Sprache wählen", helpLink: "Hilfe anzeigen", difficulty: "Schwierigkeit wählen" },
       start: {
         intro1: "Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.",
@@ -19,7 +21,7 @@
         helpLink: "[H]ilfe",
         btn: "Spiel starten!",
       },
-      end: { title: "Verbindung getrennt!", score: "Score", highscore: "Highscore", btn: "Nochmal spielen" },
+      end: { title: "Verbindung getrennt!", score: "Dein Score", highscore: "Highscore", btn: "Nochmal spielen" },
       help: {
         title: "So funktioniert ipv6gg",
         p1: "Du spielst einen Router und musst jedes einfliegende IPv6-Paket an das richtige Zielnetz schicken, bevor seine Zeit abläuft.",
@@ -53,10 +55,11 @@
         hardPenalty: "Hard: Score auf Level-Start zurückgesetzt.",
       },
       hud: { score: "Score", lives: "Leben", level: "Level", highscore: "Highscore", correct: "Richtig", wrong: "Falsch", combo: "KOMBO", bonus: "Bonus", difficulty: "Schwierigkeit", nextLevel: "Nächstes Level in {{points}} Punkten ({{progress}}/{{target}})" },
-      difficulty: { easy: "Easy", normal: "Normal", hard: "Hard" },
+      stats: { routesTitle: "Routen 1–5 (Richtig/Falsch)" },
+      difficulty: { easy: "Leicht", normal: "Normal", hard: "Schwer" },
       targets: { fail: "Fehlversuch", subtitleBroadcast: "Broadcast: ff0e::1", subtitleMulticast: "Link-Local Multicast", subtitleBlock: "Block ungültige Pakete" },
       packet: { active: "AKTIV" },
-      soundMode: { person: "Person", effekt: "Effekt", off: "Off" },
+      soundMode: { person: "Person", effekt: "Effekt", off: "Aus" },
       log: {
         viewLog: "Log anzeigen",
         close: "Schließen",
@@ -78,6 +81,8 @@
     en: {
       langName: "English",
       btn: { music: "[M]usic", sound: "[E]ffects", touch: "[T]ouch", help: "[H]elp" },
+      hotkey: { music: "m", sound: "e", touch: "t", help: "h" },
+      toggle: { on: "On", off: "Off" },
       aria: { music: "Toggle music", sound: "Toggle effects", touch: "Toggle touch buttons", help: "Show help", lang: "Choose language", helpLink: "Show help", difficulty: "Choose difficulty" },
       start: {
         intro1: "You are a router. Packets fall from above with IPv6 destinations.",
@@ -87,7 +92,7 @@
         helpLink: "[H]elp",
         btn: "Start game!",
       },
-      end: { title: "Connection lost!", score: "Score", highscore: "Highscore", btn: "Play again" },
+      end: { title: "Connection lost!", score: "Your score", highscore: "Highscore", btn: "Play again" },
       help: {
         title: "How ipv6gg works",
         p1: "You play a router and must send each incoming IPv6 packet to the correct destination network before its time runs out.",
@@ -121,6 +126,7 @@
         hardPenalty: "Hard: Score reset to level start.",
       },
       hud: { score: "Score", lives: "Lives", level: "Level", highscore: "Highscore", correct: "Correct", wrong: "Wrong", combo: "COMBO", bonus: "Bonus", difficulty: "Difficulty", nextLevel: "Next level in {{points}} points ({{progress}}/{{target}})" },
+      stats: { routesTitle: "Routes 1–5 (Correct/Wrong)" },
       difficulty: { easy: "Easy", normal: "Normal", hard: "Hard" },
       targets: { fail: "Isolate", subtitleBroadcast: "Broadcast: ff0e::1", subtitleMulticast: "Link-Local Multicast", subtitleBlock: "Block invalid packets" },
       packet: { active: "ACTIVE" },
@@ -146,6 +152,8 @@
     fr: {
       langName: "Français",
       btn: { music: "[M]usique", sound: "[E]ffets", touch: "[T]ouch", help: "[A]ide" },
+      hotkey: { music: "m", sound: "e", touch: "t", help: "a" },
+      toggle: { on: "Activé", off: "Désactivé" },
       aria: { music: "Activer la musique", sound: "Activer les effets", touch: "Activer les boutons tactiles", help: "Afficher l'aide", lang: "Choisir la langue", helpLink: "Afficher l'aide", difficulty: "Choisir la difficulté" },
       start: {
         intro1: "Tu es un routeur. Les paquets tombent avec des destinations IPv6.",
@@ -155,7 +163,7 @@
         helpLink: "[A]ide",
         btn: "Jouer !",
       },
-      end: { title: "Connexion perdue !", score: "Score", highscore: "Meilleur score", btn: "Rejouer" },
+      end: { title: "Connexion perdue !", score: "Votre score", highscore: "Meilleur score", btn: "Rejouer" },
       help: {
         title: "Comment fonctionne ipv6gg",
         p1: "Tu joues un routeur et dois envoyer chaque paquet IPv6 vers le bon réseau avant expiration.",
@@ -189,10 +197,11 @@
         hardPenalty: "Hard : score remis au début du niveau.",
       },
       hud: { score: "Score", lives: "Vies", level: "Niveau", highscore: "Meilleur score", correct: "Juste", wrong: "Faux", combo: "COMBO", bonus: "Bonus", difficulty: "Difficulté", nextLevel: "Prochain niveau dans {{points}} points ({{progress}}/{{target}})" },
-      difficulty: { easy: "Easy", normal: "Normal", hard: "Hard" },
+      stats: { routesTitle: "Routes 1–5 (Juste/Faux)" },
+      difficulty: { easy: "Facile", normal: "Normal", hard: "Difficile" },
       targets: { fail: "Isoler", subtitleBroadcast: "Broadcast: ff0e::1", subtitleMulticast: "Multicast link-local", subtitleBlock: "Bloquer paquets invalides" },
       packet: { active: "ACTIF" },
-      soundMode: { person: "Personne", effekt: "Effet", off: "Off" },
+      soundMode: { person: "Personne", effekt: "Effet", off: "Désactivé" },
       log: {
         viewLog: "Voir le log",
         close: "Fermer",
@@ -214,6 +223,8 @@
     es: {
       langName: "Español",
       btn: { music: "[M]úsica", sound: "[E]fectos", touch: "[T]áctil", help: "[A]yuda" },
+      hotkey: { music: "m", sound: "e", touch: "t", help: "a" },
+      toggle: { on: "Activado", off: "Desactivado" },
       aria: { music: "Activar música", sound: "Activar efectos", touch: "Activar botones táctiles", help: "Mostrar ayuda", lang: "Elegir idioma", helpLink: "Mostrar ayuda", difficulty: "Elegir dificultad" },
       start: {
         intro1: "Eres un router. Los paquetes caen con destinos IPv6.",
@@ -223,7 +234,7 @@
         helpLink: "[A]yuda",
         btn: "¡Jugar!",
       },
-      end: { title: "¡Conexión perdida!", score: "Puntuación", highscore: "Récord", btn: "Jugar de nuevo" },
+      end: { title: "¡Conexión perdida!", score: "Tu puntuación", highscore: "Récord", btn: "Jugar de nuevo" },
       help: {
         title: "Cómo funciona ipv6gg",
         p1: "Juegas un router y debes enviar cada paquete IPv6 al destino correcto antes de que se agote el tiempo.",
@@ -257,10 +268,11 @@
         hardPenalty: "Hard: puntuación reiniciada al inicio del nivel.",
       },
       hud: { score: "Puntos", lives: "Vidas", level: "Nivel", highscore: "Récord", correct: "Bien", wrong: "Mal", combo: "COMBO", bonus: "Bonus", difficulty: "Dificultad", nextLevel: "Siguiente nivel en {{points}} puntos ({{progress}}/{{target}})" },
-      difficulty: { easy: "Easy", normal: "Normal", hard: "Hard" },
+      stats: { routesTitle: "Rutas 1–5 (Bien/Mal)" },
+      difficulty: { easy: "Fácil", normal: "Normal", hard: "Difícil" },
       targets: { fail: "Aislar", subtitleBroadcast: "Broadcast: ff0e::1", subtitleMulticast: "Multicast link-local", subtitleBlock: "Bloquear paquetes inválidos" },
       packet: { active: "ACTIVO" },
-      soundMode: { person: "Persona", effekt: "Efecto", off: "Off" },
+      soundMode: { person: "Persona", effekt: "Efecto", off: "Desactivado" },
       log: {
         viewLog: "Ver log",
         close: "Cerrar",

@@ -493,6 +493,8 @@ body {
 
 .panel {
   width: min(90%, 560px);
+  max-height: 90vh;
+  overflow-y: auto;
   background: linear-gradient(160deg, rgba(16, 16, 50, 0.92), rgba(8, 8, 30, 0.92));
   border: 1px solid var(--neon-soft);
   border-radius: 12px;
@@ -632,6 +634,27 @@ body {
   background: rgba(255, 76, 138, 0.08);
 }
 
+.end-stats {
+  margin: 10px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.end-stats .chart-wrap {
+  width: 100%;
+  max-width: 360px;
+  height: 180px;
+}
+
+.end-stats canvas {
+  display: block;
+  width: 100% !important;
+  height: 180px !important;
+  max-width: 360px;
+}
+
 .game-log-panel button {
   margin-top: 12px;
   flex-shrink: 0;
@@ -644,8 +667,13 @@ body {
   right: auto;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
   gap: 8px;
   z-index: 5;
+  max-width: min(96vw, 980px);
+  padding: 0 8px;
 }
 
 .controls button,
@@ -760,6 +788,22 @@ body {
 }
 
 @media (max-width: 700px) {
+  .controls {
+    gap: 6px;
+    padding: 0 6px;
+  }
+
+  .controls button {
+    order: 1;
+  }
+
+  .controls .lang-select,
+  .controls .difficulty-select {
+    order: 2;
+    min-width: 7rem;
+    max-width: 12rem;
+  }
+
   .panel {
     padding: 16px;
   }

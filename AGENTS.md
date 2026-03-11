@@ -1,0 +1,13 @@
+- ipv6gg is a single-page browser game (no build step) served as static files via `index.html`, `game.js`, `styles.css` and `i18n.js`.
+- The canvas gameplay lives entirely in `game.js`; changes to game logic, difficulty, scoring or rendering should go there, not in `index.html`.
+- Translations (DE/EN/FR/ES), button labels and hotkey letters are all defined in `i18n.js`; when you change UI text or shortcuts, update all four languages.
+- Difficulty modes (Easy/Normal/Hard) are wired through a single `difficulty` state and `DIFFICULTY_CONFIG`; respect this config instead of hard-coding mode-dependent behaviour.
+- Easy mode disables Route 3 entirely (no key 3, no target 3, no `2a10:42:3::/64` packets) and enables suggestion highlights for the correct routes.
+- Hard mode increases packet variety and, on any mistake, resets score to the level start, clears the combo and removes a life; keep this penalty consistent wherever errors are handled.
+- Game over flows through `endGame()` and shows an overlay (`endOverlay`) with score, highscore and compact Chart.js stats; keep new end-of-run UI inside this overlay.
+- Audio has two parallel concepts: background music (`bgm` audio element) and effect/speaker modes (`soundMode`); do not mix or overload these responsibilities.
+- Mobile controls use `.mobile-buttons` and route buttons with `data-route`; any routing feature added for keyboard should be kept in sync for touch.
+- The repo is deployed via GitHub Pages using `.github/workflows/pages.yml`; avoid adding server-side code or assumptions—everything must work as static assets.
+- Local development typically runs via a simple static server (e.g. `python -m http.server 8080`) from the repo root; keep paths relative and avoid bundler-specific conventions.
+- Project-specific ignore rules live in `.gitignore`; do not commit `.cursor` artefacts or other local tooling state unless explicitly requested.
+

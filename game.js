@@ -22,6 +22,7 @@
   const startHelpLink = document.getElementById("startHelpLink");
   const langSelect = document.getElementById("langSelect");
   const difficultySelect = document.getElementById("difficultySelect");
+  const LANG_FLAGS = { de: "🇩🇪", en: "🇬🇧", fr: "🇫🇷", es: "🇪🇸" };
   const bgm = document.getElementById("bgm");
   const impactFlash = document.getElementById("impactFlash");
   const mobileButtons = document.getElementById("mobileButtons");
@@ -70,6 +71,15 @@
     normal: { spawnFactor: 1,    speedFactor: 1,    ttlFactor: 1,    route3Enabled: true,  suggestHighlight: false },
     hard:   { spawnFactor: 0.82, speedFactor: 1.12, ttlFactor: 0.88, route3Enabled: true,  suggestHighlight: false },
   };
+
+  const routeStats = [
+    { key: "1", hits: 0, misses: 0 },
+    { key: "2", hits: 0, misses: 0 },
+    { key: "3", hits: 0, misses: 0 },
+    { key: "4", hits: 0, misses: 0 },
+    { key: "5", hits: 0, misses: 0 }
+  ];
+  let routeStatsChart = null;
 
   let audioCtx = null;
   let targetPressFx = [0, 0, 0, 0, 0];
@@ -136,21 +146,21 @@
     const centerX = packet.x + packet.w / 2;
     const centerY = packet.y + packet.h / 2;
     createParticles(centerX, centerY, "#6fd6ff");
-    addToast(t("toast.comboBonus", { n: COMBO_BONUS }), "#9de8ff", 1.8);
+    addToast(t("toast.comboBonus", { n: COMBO_BONUS }), "#9de8ff", 1.8, true);
 
     const comboLabel = (key) => t(key).replace(/!$/, "");
     if (comboStreak === 5) {
       emitShaderCombo(comboLabel("toast.combo"), comboStreak, tone);
-      addToast(t("toast.combo"), "#7fdfff", 2.2);
+      addToast(t("toast.combo"), "#7fdfff", 2.2, true);
     } else if (comboStreak === 10) {
       emitShaderCombo(comboLabel("toast.megaCombo"), comboStreak, "mega");
-      addToast(t("toast.megaCombo"), "#ffd166", 2.4);
+      addToast(t("toast.megaCombo"), "#ffd166", 2.4, true);
     } else if (comboStreak === 15) {
       emitShaderCombo(comboLabel("toast.goodRouter"), comboStreak, "router");
-      addToast(t("toast.goodRouter"), "#ffb86c", 2.6);
+      addToast(t("toast.goodRouter"), "#ffb86c", 2.6, true);
     } else if (comboStreak === 20) {
       emitShaderCombo(comboLabel("toast.monsterRouter"), comboStreak, "monster");
-      addToast(t("toast.monsterRouter"), "#e879f9", 2.8);
+      addToast(t("toast.monsterRouter"), "#e879f9", 2.8, true);
     } else {
       emitShaderCombo(`${comboLabel("toast.combo")} x${comboStreak}`, comboStreak, tone);
     }
@@ -169,7 +179,7 @@
   }
 
   function syncMusicButton() {
-    musicBtn.textContent = `${t("btn.music")}: ${musicEnabled ? "On" : "Off"}`;
+    musicBtn.textContent = `${t("btn.music")}: ${musicEnabled ? t("toggle.on") : t("toggle.off")}`;
     musicBtn.setAttribute("aria-label", t("aria.music"));
   }
 
@@ -179,7 +189,7 @@
   }
 
   function syncTouchButton() {
-    touchBtn.textContent = `${t("btn.touch")}: ${touchEnabled ? "On" : "Off"}`;
+    touchBtn.textContent = `${t("btn.touch")}: ${touchEnabled ? t("toggle.on") : t("toggle.off")}`;
     touchBtn.setAttribute("aria-label", t("aria.touch"));
     if (mobileButtons) {
       if (touchEnabled) {
@@ -202,10 +212,21 @@
     }
   }
 
+  function syncLangSelectOptions() {
+    if (!langSelect || !window.i18n || !window.i18n.LANGUAGES) return;
+    const langs = window.i18n.LANGUAGES;
+    for (let i = 0; i < langSelect.options.length; i += 1) {
+      const opt = langSelect.options[i];
+      const name = langs.find((l) => l.code === opt.value)?.name || opt.value.toUpperCase();
+      opt.textContent = (LANG_FLAGS[opt.value] || "🌐") + " " + name;
+    }
+  }
+
   function applyUITranslations() {
     if (langSelect) {
       langSelect.value = window.i18n.getLanguage();
       langSelect.setAttribute("aria-label", t("aria.lang"));
+      syncLangSelectOptions();
     }
     const startIntro1El = document.getElementById("startIntro1");
     const startIntro2El = document.getElementById("startIntro2");
@@ -428,9 +449,9 @@
     playEffectUrl(`sound/levelup-${lang}-${variant}.mp3`);
   }
 
-  function addToast(text, color = neon, life = 1.2) {
+  function addToast(text, color = neon, life = 1.2, foreground = false) {
     const doubledLife = life * 2;
-    toasts.push({ text, color, life: doubledLife, maxLife: doubledLife });
+    toasts.push({ text, color, life: doubledLife, maxLife: doubledLife, foreground });
   }
 
   function triggerImpact(type) {
@@ -680,6 +701,10 @@
     spawnTimer = 0;
     draggingPacket = null;
     packetId = 1;
+    for (let i = 0; i < routeStats.length; i += 1) {
+      routeStats[i].hits = 0;
+      routeStats[i].misses = 0;
+    }
   }
 
   function startGame() {
@@ -714,6 +739,7 @@
     }
     endScoreText.textContent = `${t("end.score")}: ${score}`;
     endHighscoreText.textContent = `${t("end.highscore")}: ${highscore}`;
+    renderStatsCharts();
     if (endPanel) endPanel.classList.remove("hidden");
     if (gameLogPanel) gameLogPanel.classList.add("hidden");
     endOverlay.classList.remove("hidden");
@@ -766,6 +792,57 @@
     if (gameLogPanel) gameLogPanel.classList.remove("hidden");
   }
 
+  function renderStatsCharts() {
+    const routeCanvas = document.getElementById("routeStatsChart");
+    if (!routeCanvas || typeof Chart === "undefined") return;
+
+    const routeLabels = routeStats.map((r) => r.key);
+    const routeHits = routeStats.map((r) => r.hits);
+    const routeMisses = routeStats.map((r) => r.misses);
+
+    if (routeStatsChart) routeStatsChart.destroy();
+    const chartOpts = {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 4, bottom: 4 } },
+      plugins: {
+        title: { display: true, text: t("stats.routesTitle"), color: "#e7f7ff", font: { size: 11, weight: "600" } },
+        legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 }, color: "#e7f7ff" } }
+      },
+      scales: {
+        x: {
+          stacked: false,
+          ticks: { font: { size: 10 }, color: "#b0d4e8" },
+          grid: { color: "rgba(40, 215, 255, 0.15)" }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, font: { size: 9 }, color: "#b0d4e8" },
+          grid: { color: "rgba(40, 215, 255, 0.15)" }
+        }
+      }
+    };
+    routeStatsChart = new Chart(routeCanvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: routeLabels,
+        datasets: [
+          { label: t("hud.correct"), data: routeHits, backgroundColor: "rgba(89, 255, 154, 0.7)" },
+          { label: t("hud.wrong"), data: routeMisses, backgroundColor: "rgba(255, 76, 138, 0.75)" }
+        ]
+      },
+      options: chartOpts
+    });
+
+  }
+
+  function recordPacketStats(packet, targetIndex, wasHit) {
+    if (typeof targetIndex === "number" && targetIndex >= 0 && targetIndex < routeStats.length) {
+      if (wasHit) routeStats[targetIndex].hits += 1;
+      else routeStats[targetIndex].misses += 1;
+    }
+  }
+
   function closeGameLog() {
     if (gameLogPanel) gameLogPanel.classList.add("hidden");
     if (endPanel) endPanel.classList.remove("hidden");
@@ -776,8 +853,8 @@
     while (targetLevel > level) {
       level += 1;
       lives += 1;
-      addToast(t("toast.levelUp", { level }), "#ffd166", 1.4);
-      addToast(t("toast.levelBonus"), "#a7ff8a", 1.2);
+      addToast(t("toast.levelUp", { level }), "#ffd166", 1.4, true);
+    addToast(t("toast.levelBonus"), "#a7ff8a", 1.2, true);
       if (soundMode === "person") playLevelUpMp3();
       if (soundMode === "effekt") playLevelUpSound();
       triggerImpact("levelup");
@@ -797,6 +874,7 @@
     beep(740, 0.09, "square", 0.108);
     beep(1080, 0.08, "square", 0.09);
     awardComboBonus(packet);
+    recordPacketStats(packet, Number(target.key) - 1, true);
     const livesBeforeLevel = lives;
     levelCheck();
     const hitLivesDelta = lives - livesBeforeLevel;
@@ -813,6 +891,7 @@
     comboStreak = 0;
     lives -= 1;
     wrongHits += 1;
+    recordPacketStats(packet, chosenTargetIndex >= 0 && chosenTargetIndex < routeStats.length ? chosenTargetIndex : -1, false);
     const chosenLabel = chosenTargetIndex >= 0 && targets[chosenTargetIndex] ? (chosenTargetIndex === 4 ? t("targets.fail") : targets[chosenTargetIndex].label) : null;
     const correctLabel = packet.correctTarget >= 0 && targets[packet.correctTarget] ? targets[packet.correctTarget].label : null;
     pushGameLog({ type: "miss", address: packet.address, reasonKey: reason, chosenTargetIndex, chosenLabel, correctTarget: packet.correctTarget, correctLabel, combo: comboBeforeReset, points: 0, livesDelta: -1, lives, score, hardPenalty });
@@ -860,6 +939,7 @@
         triggerImpact("ok");
         beep(560, 0.08, "square", 0.09);
         awardComboBonus(packet, "isolate");
+        recordPacketStats(packet, 4, true);
         const livesBeforeLevel = lives;
         levelCheck();
         const isolateLivesDelta = lives - livesBeforeLevel;
@@ -1140,23 +1220,31 @@
     particles = next;
   }
 
-  function drawToasts(dt) {
+  function updateToasts(dt) {
     const next = [];
     for (let i = 0; i < toasts.length; i += 1) {
       const t = toasts[i];
       t.life -= dt;
-      if (t.life <= 0) continue;
+      if (t.life > 0) next.push(t);
+    }
+    toasts = next;
+  }
+
+  function drawToastLayer(foreground) {
+    let yOffset = 0;
+    for (let i = 0; i < toasts.length; i += 1) {
+      const t = toasts[i];
+      if (t.foreground !== foreground) continue;
       const alpha = Math.max(0, t.life / t.maxLife);
-      const y = 70 + i * 24;
+      const y = 70 + yOffset * 24;
+      yOffset += 1;
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.font = "bold 16px Trebuchet MS";
       ctx.fillStyle = t.color;
       ctx.fillText(t.text, 24, y);
       ctx.restore();
-      next.push(t);
     }
-    toasts = next;
   }
 
   function drawHUD() {
@@ -1191,11 +1279,6 @@
     ctx.fillStyle = comboMultiplier > 1 ? "#ffd166" : "rgba(231, 247, 255, 0.72)";
     ctx.font = "bold 12px Trebuchet MS";
     ctx.fillText(`${t("hud.bonus")} x${comboMultiplier.toFixed(1)}`, 700, 47);
-
-    ctx.font = "bold 11px Trebuchet MS";
-    ctx.fillStyle = "rgba(231, 247, 255, 0.85)";
-    const difficultyLabel = t("difficulty." + difficulty);
-    ctx.fillText(`${t("hud.difficulty")}: ${difficultyLabel}`, 14, 52);
 
     const barX = 14;
     const barY = 38;
@@ -1259,11 +1342,13 @@
     lastTime = ts;
 
     update(dt);
+    updateToasts(dt);
     drawBackground(ts);
     drawTargets();
+    drawToastLayer(false);
     drawPackets();
     drawParticles(dt);
-    drawToasts(dt);
+    drawToastLayer(true);
     drawHUD();
     if (running) syncMobileDifficultyState();
 
@@ -1390,19 +1475,23 @@
     }
     const key = ev.key.toLowerCase();
     const code = ev.code;
-    if (key === "m" || code === "KeyM") {
+    const musicKey = (t("hotkey.music") || "m").toLowerCase();
+    const soundKey = (t("hotkey.sound") || "e").toLowerCase();
+    const touchKey = (t("hotkey.touch") || "t").toLowerCase();
+    const helpKey = (t("hotkey.help") || "h").toLowerCase();
+    if (key === musicKey || code === "Key" + musicKey.toUpperCase()) {
       ev.preventDefault();
       musicBtn.click();
     }
-    if (key === "e" || code === "KeyE") {
+    if (key === soundKey || code === "Key" + soundKey.toUpperCase()) {
       ev.preventDefault();
       soundBtn.click();
     }
-    if (key === "t" || code === "KeyT") {
+    if (key === touchKey || code === "Key" + touchKey.toUpperCase()) {
       ev.preventDefault();
       touchBtn.click();
     }
-    if (key === "h" || code === "KeyH") {
+    if (key === helpKey || code === "Key" + helpKey.toUpperCase()) {
       ev.preventDefault();
       if (helpOverlay.classList.contains("hidden")) {
         openHelp();
