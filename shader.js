@@ -43,6 +43,12 @@ const COMBO_TONES = {
   levelup: "#a7ff8a"
 };
 
+const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+function reducedMotionEnabled() {
+  return !!(reduceMotionQuery && reduceMotionQuery.matches);
+}
+
 let comboMessageTimeout = null;
 let comboBannerTimeout = null;
 let root = null;
@@ -152,6 +158,7 @@ const applyPacketShaderEffect = (outcome) => {
 };
 
 const pushRingBurst = (tone = "combo", durationMs = 900) => {
+  if (reducedMotionEnabled()) return;
   if (!shaderPulseLayerEl) return;
   const color = COMBO_TONES[tone] || COMBO_TONES.combo;
   const effectiveDuration = durationMs;
@@ -190,6 +197,7 @@ const pushRingBurst = (tone = "combo", durationMs = 900) => {
 };
 
 const showComboBadge = (text, tone = "combo") => {
+  if (reducedMotionEnabled()) return;
   if (!modeEl) return;
   modeEl.classList.remove("combo-popup");
   void modeEl.offsetWidth;
@@ -210,6 +218,7 @@ const showComboBadge = (text, tone = "combo") => {
 };
 
 const showComboBanner = (text, tone = "combo") => {
+  if (reducedMotionEnabled()) return;
   if (!comboBannerEl) return;
   comboBannerEl.classList.remove("show", "tone-mega", "tone-router", "tone-levelup");
   comboBannerEl.textContent = text;

@@ -47,6 +47,10 @@
           <option value="normal" selected>Normal</option>
           <option value="hard">Hard</option>
         </select>
+        <select id="modeSelect" class="mode-select" aria-label="Spielmodus wählen">
+          <option value="single" selected>Single</option>
+          <option value="duel">Duell</option>
+        </select>
         <button id="musicBtn" aria-label="Musik umschalten">[M]usic: On</button>
         <button id="soundBtn" aria-label="Effekte umschalten">[E]ffekte: On</button>
         <button id="touchBtn" aria-label="Touch-Buttons umschalten">[T]ouch: On</button>
@@ -79,6 +83,7 @@
           <h2 id="endTitle">Verbindung getrennt!</h2>
           <p id="endScoreText"></p>
           <p id="endHighscoreText"></p>
+          <p id="endMetricsText"></p>
           <div class="end-stats">
             <div class="chart-wrap"><canvas id="routeStatsChart"></canvas></div>
           </div>
@@ -107,11 +112,23 @@
           <button id="closeHelpBtn">Verstanden</button>
         </div>
       </div>
+
+      <div class="overlay hidden" id="tutorialOverlay">
+        <div class="panel tutorial-panel" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
+          <h2 id="tutorialTitle">Tutorial</h2>
+          <p id="tutorialText"></p>
+          <div class="tutorial-actions">
+            <button id="tutorialSkipBtn" type="button">Überspringen</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script type="module" src="shader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="core.js"></script>
+  <script src="duel-core.js"></script>
   <script src="game.js"></script>
   <script defer src="https://umami.0xfab1.net/script.js" data-website-id="a9431491-8028-44e0-b5d5-46417644cd99"></script>
 </body>

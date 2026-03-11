@@ -4,7 +4,7 @@
   --neon: #28d7ff;
   --neon-soft: rgba(40, 215, 255, 0.35);
   --ok: #59ff9a;
-  --bad: #ff4c8a;
+  --bad: #ff5b7d;
   --text: #e7f7ff;
   --warn: #ffd166;
 }
@@ -21,7 +21,7 @@ body {
   height: 100%;
   background: 
     linear-gradient(rgba(6, 6, 18, 0.82), rgba(10, 10, 26, 0.88)),
-    url('bg.png') center/cover no-repeat fixed;
+    url('bg.jpg') center/cover no-repeat fixed;
   color: var(--text);
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   overflow: hidden;
@@ -211,7 +211,8 @@ body {
   .shader-ring-pulse,
   .shader-ring-pulse.echo,
   .shader-ring-spark {
-    animation-duration: 380ms !important;
+    animation: none !important;
+    opacity: 0 !important;
   }
 }
 
@@ -594,6 +595,18 @@ body {
   filter: brightness(1.15);
 }
 
+.panel button:focus-visible,
+.controls button:focus-visible,
+.controls .lang-select:focus-visible,
+.controls .difficulty-select:focus-visible,
+.controls .mode-select:focus-visible,
+.mobile-btn:focus-visible,
+.start-help-hint a:focus-visible {
+  outline: 2px solid #ffe38a;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(255, 227, 138, 0.25);
+}
+
 .view-log-btn {
   margin-left: 10px;
 }
@@ -686,7 +699,8 @@ body {
 
 .controls button,
 .controls .lang-select,
-.controls .difficulty-select {
+.controls .difficulty-select,
+.controls .mode-select {
   border: 1px solid var(--neon-soft);
   border-radius: 8px;
   background: rgba(8, 20, 36, 0.86);
@@ -698,7 +712,8 @@ body {
 }
 
 .controls .lang-select,
-.controls .difficulty-select {
+.controls .difficulty-select,
+.controls .mode-select {
   min-width: 0;
   max-width: 10rem;
   appearance: auto;
@@ -761,6 +776,23 @@ body {
   background: rgba(40, 215, 255, 0.2);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .impact-flash,
+  .shader-effect,
+  .shader-combo-banner {
+    display: none !important;
+  }
+}
+
 /* Easy-Modus: Vorschlags-Highlight (korrekter Button) */
 .mobile-btn.suggested {
   box-shadow: 0 0 20px rgba(89, 255, 154, 0.85);
@@ -806,7 +838,8 @@ body {
   }
 
   .controls .lang-select,
-  .controls .difficulty-select {
+  .controls .difficulty-select,
+  .controls .mode-select {
     order: 2;
     min-width: 7rem;
     max-width: 12rem;

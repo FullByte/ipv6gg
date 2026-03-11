@@ -8,6 +8,7 @@
   const playAgainBtn = document.getElementById("playAgainBtn");
   const endScoreText = document.getElementById("endScoreText");
   const endHighscoreText = document.getElementById("endHighscoreText");
+  const endMetricsText = document.getElementById("endMetricsText");
   const endTitle = document.getElementById("endTitle");
   const endPanel = document.getElementById("endPanel");
   const viewLogBtn = document.getElementById("viewLogBtn");
@@ -22,6 +23,10 @@
   const startHelpLink = document.getElementById("startHelpLink");
   const langSelect = document.getElementById("langSelect");
   const difficultySelect = document.getElementById("difficultySelect");
+  const modeSelect = document.getElementById("modeSelect");
+  const tutorialOverlay = document.getElementById("tutorialOverlay");
+  const tutorialText = document.getElementById("tutorialText");
+  const tutorialSkipBtn = document.getElementById("tutorialSkipBtn");
   const LANG_FLAGS = { de: "🇩🇪", en: "🇬🇧", fr: "🇫🇷", es: "🇪🇸" };
   const bgm = document.getElementById("bgm");
   const impactFlash = document.getElementById("impactFlash");
@@ -31,15 +36,20 @@
 
   const GAME_W = 800;
   const GAME_H = 600;
+  const DUEL_LANE_W = GAME_W / 2;
   const TARGET_Y = 520;
   const TARGET_MARGIN_X = 18;
   const TARGET_GAP = 10;
   const STORAGE_KEY = "ipv6gg_highscore";
+  const SETTINGS_STORAGE_KEY = "ipv6gg_settings_v1";
+  const SETTINGS_VERSION = 1;
   const mobileMode = window.matchMedia("(max-width: 700px), (pointer: coarse)").matches;
+  const core = window.ipv6ggCore;
+  const duelCore = window.ipv6ggDuelCore;
 
   const neon = "#28d7ff";
   const okColor = "#59ff9a";
-  const badColor = "#ff4c8a";
+  const badColor = "#ff5b7d";
 
   let packets = [];
   let particles = [];
@@ -59,18 +69,71 @@
   let draggingPacket = null;
   let pointer = { x: 0, y: 0 };
   let touchEnabled = true;
+  let touchEnabledPreference = true;
   let musicEnabled = true;
   const SOUND_MODES = ["person", "effekt", "off"];
   let soundMode = "person";
   const DIFFICULTIES = ["easy", "normal", "hard"];
+  const MODES = ["single", "duel"];
+  let gameMode = "single";
   /** Aktive Schwierigkeit (wird beim Start aus dem Dropdown übernommen; während des Laufs nicht änderbar). */
   let difficulty = "normal";
-
-  const DIFFICULTY_CONFIG = {
-    easy:   { spawnFactor: 1.85, speedFactor: 0.58, ttlFactor: 1.55, route3Enabled: false, suggestHighlight: true },
+  const DIFFICULTY_CONFIG = core ? core.DIFFICULTY_CONFIG : {
+    easy:   { spawnFactor: 2.05, speedFactor: 0.52, ttlFactor: 1.75, route3Enabled: false, suggestHighlight: true },
     normal: { spawnFactor: 1,    speedFactor: 1,    ttlFactor: 1,    route3Enabled: true,  suggestHighlight: false },
-    hard:   { spawnFactor: 0.82, speedFactor: 1.12, ttlFactor: 0.88, route3Enabled: true,  suggestHighlight: false },
+    hard:   { spawnFactor: 0.8, speedFactor: 1.15, ttlFactor: 0.85, route3Enabled: true,  suggestHighlight: false },
   };
+
+  let runStartedAtMs = 0;
+  const runMetrics = {
+    hits: 0,
+    misses: 0,
+    comboSum: 0,
+    comboCount: 0,
+    lifeLosses: 0
+  };
+
+  const tutorialPackets = [
+    { address: "2001:db8:1::abcd", acceptedTargets: null },
+    { address: "2001:db8:2::b00c", acceptedTargets: null },
+    { address: "ff02::1", acceptedTargets: null },
+    { address: "2001:db8:9::dead", acceptedTargets: null }
+  ];
+  let tutorialMode = false;
+  let tutorialIndex = 0;
+
+  function createDuelPlayer(playerId) {
+    return {
+      playerId,
+      packets: [],
+      score: 0,
+      lives: 3,
+      comboStreak: 0,
+      correctHits: 0,
+      wrongHits: 0,
+      level: 1,
+      spawnTimer: 0,
+      packetId: 1,
+      targetPressFx: [0, 0, 0, 0, 0],
+      routeStats: [
+        { key: "1", hits: 0, misses: 0 },
+        { key: "2", hits: 0, misses: 0 },
+        { key: "3", hits: 0, misses: 0 },
+        { key: "4", hits: 0, misses: 0 },
+        { key: "5", hits: 0, misses: 0 }
+      ],
+      metrics: {
+        hits: 0,
+        misses: 0,
+        comboSum: 0,
+        comboCount: 0,
+        lifeLosses: 0
+      }
+    };
+  }
+
+  let duelPlayers = [createDuelPlayer(1), createDuelPlayer(2)];
+  let duelWinnerText = "";
 
   const routeStats = [
     { key: "1", hits: 0, misses: 0 },
@@ -189,15 +252,23 @@
   }
 
   function syncTouchButton() {
+    const touchLocked = gameMode === "duel";
     touchBtn.textContent = `${t("btn.touch")}: ${touchEnabled ? t("toggle.on") : t("toggle.off")}`;
     touchBtn.setAttribute("aria-label", t("aria.touch"));
+    touchBtn.disabled = touchLocked;
+    touchBtn.setAttribute("aria-disabled", touchLocked ? "true" : "false");
     if (mobileButtons) {
-      if (touchEnabled) {
+      // Duel mode uses keyboard-only routing; hide touch route buttons to keep the split fields clean.
+      if (touchEnabled && gameMode !== "duel") {
         mobileButtons.classList.add("touch-enabled");
       } else {
         mobileButtons.classList.remove("touch-enabled");
       }
     }
+  }
+
+  function applyTouchModePolicy() {
+    touchEnabled = gameMode === "duel" ? false : touchEnabledPreference;
   }
 
   function syncDifficultySelect() {
@@ -243,6 +314,14 @@
       }
     }
     if (startBtn) startBtn.textContent = t("start.btn");
+    if (modeSelect) {
+      modeSelect.setAttribute("aria-label", t("aria.mode"));
+      const modeOpts = modeSelect.options;
+      if (modeOpts.length >= 2) {
+        modeOpts[0].textContent = t("mode.single");
+        modeOpts[1].textContent = t("mode.duel");
+      }
+    }
     if (endTitle) endTitle.textContent = t("end.title");
     if (playAgainBtn) playAgainBtn.textContent = t("end.btn");
     if (viewLogBtn) viewLogBtn.textContent = t("log.viewLog");
@@ -260,6 +339,8 @@
       helpRepoEl.innerHTML = '<a href="' + repoUrl + '" target="_blank" rel="noopener noreferrer">' + (t("help.repo") || "Source code on GitHub") + "</a>";
     }
     if (closeHelpBtn) closeHelpBtn.textContent = t("help.close");
+    if (tutorialSkipBtn) tutorialSkipBtn.textContent = t("tutorial.skip");
+    if (tutorialText && tutorialMode) updateTutorialText();
     syncMusicButton();
     syncSoundButton();
     syncTouchButton();
@@ -267,7 +348,13 @@
       helpBtn.textContent = t("btn.help");
       helpBtn.setAttribute("aria-label", t("aria.help"));
     }
+    const mobileBtnEls = document.querySelectorAll(".mobile-btn");
+    mobileBtnEls.forEach((btn) => {
+      const route = Number(btn.getAttribute("data-route")) + 1;
+      btn.setAttribute("aria-label", t("aria.routeButton", { route }));
+    });
     syncDifficultySelect();
+    syncModeSelect();
   }
 
   const targets = [
@@ -278,13 +365,105 @@
     { key: "5", label: "Fehlversuch", prefix: null, rect: { x: 0, y: TARGET_Y, w: 0, h: 64 } }
   ];
 
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.version !== SETTINGS_VERSION) return null;
+      return parsed;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function saveSettings() {
+    const next = {
+      version: SETTINGS_VERSION,
+      language: window.i18n.getLanguage(),
+      difficulty,
+      mode: gameMode,
+      musicEnabled,
+      soundMode,
+      touchEnabled: touchEnabledPreference,
+      tutorialDone: localStorage.getItem("ipv6gg_tutorial_done") === "1"
+    };
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+    } catch (err) {
+      // Ignore storage write failures.
+    }
+  }
+
+  function applySettings() {
+    const settings = loadSettings();
+    if (!settings) return;
+    if (DIFFICULTIES.includes(settings.difficulty)) difficulty = settings.difficulty;
+    if (MODES.includes(settings.mode)) gameMode = settings.mode;
+    if (typeof settings.musicEnabled === "boolean") musicEnabled = settings.musicEnabled;
+    if (typeof settings.touchEnabled === "boolean") touchEnabledPreference = settings.touchEnabled;
+    if (SOUND_MODES.includes(settings.soundMode)) soundMode = settings.soundMode;
+    if (settings.language && window.i18n.SUPPORTED.includes(settings.language)) {
+      window.i18n.setLanguage(settings.language);
+    }
+    if (settings.tutorialDone) localStorage.setItem("ipv6gg_tutorial_done", "1");
+    applyTouchModePolicy();
+  }
+
+  function syncModeSelect() {
+    if (!modeSelect) return;
+    modeSelect.disabled = running;
+    modeSelect.value = gameMode;
+    if (mobileMode) {
+      modeSelect.value = "single";
+      modeSelect.disabled = true;
+      modeSelect.classList.add("hidden");
+    } else {
+      modeSelect.classList.remove("hidden");
+    }
+  }
+
   function getDifficultyConfig() {
+    if (core && core.getDifficultyConfig) return core.getDifficultyConfig(difficulty);
     return DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
   }
 
-  function layoutTargets() {
+  function resetRunMetrics() {
+    runStartedAtMs = performance.now();
+    runMetrics.hits = 0;
+    runMetrics.misses = 0;
+    runMetrics.comboSum = 0;
+    runMetrics.comboCount = 0;
+    runMetrics.lifeLosses = 0;
+  }
+
+  function renderRunMetrics() {
+    if (!endMetricsText) return;
+    const total = runMetrics.hits + runMetrics.misses;
+    const hitRate = total > 0 ? (runMetrics.hits / total) * 100 : 0;
+    const avgCombo = runMetrics.comboCount > 0 ? runMetrics.comboSum / runMetrics.comboCount : 0;
+    const mins = Math.max(0.1, (performance.now() - runStartedAtMs) / 60000);
+    const lossesPerMin = runMetrics.lifeLosses / mins;
+    endMetricsText.textContent = t("end.metrics", {
+      hitRate: hitRate.toFixed(1),
+      avgCombo: avgCombo.toFixed(2),
+      lifeLossesPerMin: lossesPerMin.toFixed(2)
+    });
+    console.log("[Metrics]", {
+      difficulty,
+      gameMode,
+      hitRate,
+      avgCombo,
+      lossesPerMin,
+      hits: runMetrics.hits,
+      misses: runMetrics.misses,
+      lifeLosses: runMetrics.lifeLosses
+    });
+  }
+
+  function layoutTargetsForWidth(fieldWidth) {
     const config = getDifficultyConfig();
-    const availableWidth = GAME_W - TARGET_MARGIN_X * 2;
+    const availableWidth = fieldWidth - TARGET_MARGIN_X * 2;
     const activeIndices = config.route3Enabled ? [0, 1, 2, 3, 4] : [0, 1, 3, 4];
     const n = activeIndices.length;
     const slotWidth = (availableWidth - TARGET_GAP * (n - 1)) / n;
@@ -303,6 +482,10 @@
         slotIndex += 1;
       }
     }
+  }
+
+  function layoutTargets() {
+    layoutTargetsForWidth(GAME_W);
   }
 
   function flashTargetPress(index) {
@@ -488,17 +671,20 @@
   }
 
   function parsePrefix(prefixStr) {
+    if (core && core.parsePrefix) return core.parsePrefix(prefixStr);
     const [address, len] = prefixStr.split("/");
     return { address, length: Number(len) };
   }
 
   function isValidIPv6(addr) {
+    if (core && core.isValidIPv6) return core.isValidIPv6(addr);
     if (typeof addr !== "string" || addr.length < 2 || addr.length > 39) return false;
     if ((addr.match(/::/g) || []).length > 1) return false;
     return /^[0-9a-fA-F:]+$/.test(addr);
   }
 
   function expandIPv6(address) {
+    if (core && core.expandIPv6) return core.expandIPv6(address);
     if (!isValidIPv6(address)) return null;
     const lower = address.toLowerCase();
     const hasCompression = lower.includes("::");
@@ -529,12 +715,14 @@
   }
 
   function ipv6ToBin(address) {
+    if (core && core.ipv6ToBin) return core.ipv6ToBin(address);
     const groups = expandIPv6(address);
     if (!groups) return null;
     return groups.map(hexGroupToBin).join("");
   }
 
   function prefixMatch(address, prefixCidr) {
+    if (core && core.prefixMatch) return core.prefixMatch(address, prefixCidr);
     if (!prefixCidr) return false;
     const parsed = parsePrefix(prefixCidr);
     if (!Number.isInteger(parsed.length) || parsed.length < 0 || parsed.length > 128) return false;
@@ -545,6 +733,7 @@
   }
 
   function findBestTargetIndex(address) {
+    if (core && core.findBestTargetIndex) return core.findBestTargetIndex(address, targets);
     let bestIndex = -1;
     let bestLen = -1;
 
@@ -565,6 +754,7 @@
   }
 
   function randomIPv6FromPrefix(prefixCidr) {
+    if (core && core.randomIPv6FromPrefix) return core.randomIPv6FromPrefix(prefixCidr, Math.random);
     const parsed = parsePrefix(prefixCidr);
     const groups = expandIPv6(parsed.address);
     if (!groups) return "2001:db8::1";
@@ -595,6 +785,9 @@
   }
 
   function generatePacketAddress() {
+    if (core && core.generatePacketAddress) {
+      return core.generatePacketAddress(level, difficulty, targets, Math.random);
+    }
     const roll = Math.random();
     const isHard = difficulty === "hard";
 
@@ -685,6 +878,297 @@
     });
   }
 
+  function resetDuelGame() {
+    duelPlayers = [createDuelPlayer(1), createDuelPlayer(2)];
+    duelWinnerText = "";
+  }
+
+  function duelGetPriorityPacket(state) {
+    if (state.packets.length === 0) return null;
+    let chosen = state.packets[0];
+    for (let i = 1; i < state.packets.length; i += 1) {
+      if (state.packets[i].spawnedAt < chosen.spawnedAt) chosen = state.packets[i];
+    }
+    return chosen;
+  }
+
+  function duelSpawnPacket(state) {
+    const config = getDifficultyConfig();
+    const packetData = core && core.generatePacketAddress
+      ? core.generatePacketAddress(state.level, difficulty, targets, Math.random)
+      : generatePacketAddress();
+    const address = packetData.address;
+    const correctTarget = findBestTargetIndex(address);
+    let ttl = Math.max(3.9, 12.1 - state.level * 0.32);
+    ttl *= config.ttlFactor;
+    let speed = 31 + state.level * 7.8;
+    speed *= config.speedFactor;
+
+    state.packets.push({
+      id: state.packetId,
+      x: 20 + Math.random() * (DUEL_LANE_W - 40 - 260),
+      y: -40,
+      w: 260,
+      h: 44,
+      address,
+      acceptedTargets: packetData.acceptedTargets || null,
+      timeLeft: ttl,
+      maxTime: ttl,
+      speed,
+      correctTarget,
+      spawnedAt: state.packetId++
+    });
+  }
+
+  function duelLevelCheck(state) {
+    const targetLevel = Math.floor(state.score / POINTS_PER_LEVEL) + 1;
+    while (targetLevel > state.level) {
+      state.level += 1;
+      state.lives += 1;
+    }
+  }
+
+  function duelScoreHit(state, packet, targetIndex, isIsolate) {
+    const basePoints = isIsolate ? 5 : 10;
+    state.score += basePoints;
+    state.correctHits += 1;
+    state.comboStreak += 1;
+    state.metrics.hits += 1;
+    state.metrics.comboSum += state.comboStreak;
+    state.metrics.comboCount += 1;
+    if (state.comboStreak >= 5) state.score += COMBO_BONUS;
+    if (targetIndex >= 0 && targetIndex < state.routeStats.length) state.routeStats[targetIndex].hits += 1;
+    duelLevelCheck(state);
+  }
+
+  function duelScoreMiss(state, packet, chosenTargetIndex) {
+    const hardPenalty = difficulty === "hard";
+    state.score = core && core.applyHardPenalty
+      ? core.applyHardPenalty(state.score, state.level, POINTS_PER_LEVEL, hardPenalty)
+      : (hardPenalty ? Math.max(0, (state.level - 1) * POINTS_PER_LEVEL) : state.score);
+    state.comboStreak = 0;
+    state.lives -= 1;
+    state.wrongHits += 1;
+    state.metrics.misses += 1;
+    state.metrics.lifeLosses += 1;
+    if (chosenTargetIndex >= 0 && chosenTargetIndex < state.routeStats.length) state.routeStats[chosenTargetIndex].misses += 1;
+  }
+
+  function endDuelIfNeeded() {
+    if (gameMode !== "duel" || !running) return;
+    const p1 = duelPlayers[0];
+    const p2 = duelPlayers[1];
+    const duelOver = duelCore && duelCore.isDuelOver
+      ? duelCore.isDuelOver(p1, p2)
+      : (p1.lives <= 0 || p2.lives <= 0);
+    if (!duelOver) return;
+
+    running = false;
+    syncDifficultySelect();
+    syncModeSelect();
+    playGameOverSound();
+    triggerImpact("gameover");
+
+    const bestScore = Math.max(p1.score, p2.score);
+    if (bestScore > highscore) {
+      highscore = bestScore;
+      localStorage.setItem(STORAGE_KEY, String(highscore));
+    }
+
+    const winner = duelCore && duelCore.resolveDuelWinner
+      ? duelCore.resolveDuelWinner(p1, p2).winner
+      : (p1.lives <= 0 && p2.lives <= 0
+        ? (p1.score > p2.score ? "p1" : (p2.score > p1.score ? "p2" : "tie"))
+        : (p1.lives <= 0 ? "p2" : "p1"));
+    if (winner === "p1") duelWinnerText = t("duel.winnerP1");
+    else if (winner === "p2") duelWinnerText = t("duel.winnerP2");
+    else duelWinnerText = t("duel.tie");
+
+    endTitle.textContent = t("end.duelTitle");
+    endScoreText.textContent = t("end.duelScore", { p1: p1.score, p2: p2.score });
+    endHighscoreText.textContent = `${t("end.highscore")}: ${highscore}`;
+    endMetricsText.textContent = t("end.duelResult", { result: duelWinnerText });
+
+    for (let i = 0; i < routeStats.length; i += 1) {
+      routeStats[i].hits = p1.routeStats[i].hits + p2.routeStats[i].hits;
+      routeStats[i].misses = p1.routeStats[i].misses + p2.routeStats[i].misses;
+    }
+    renderStatsCharts();
+    if (endPanel) endPanel.classList.remove("hidden");
+    if (gameLogPanel) gameLogPanel.classList.add("hidden");
+    endOverlay.classList.remove("hidden");
+  }
+
+  function handleDuelKeyRoute(playerIndex, targetIndex) {
+    if (!running || gameMode !== "duel") return;
+    const state = duelPlayers[playerIndex];
+    if (!state || state.lives <= 0) return;
+    if (targetIndex < 0 || targetIndex > 4) return;
+    if (!getDifficultyConfig().route3Enabled && targetIndex === 2) return;
+
+    state.targetPressFx[targetIndex] = performance.now() + 220;
+    const packet = duelGetPriorityPacket(state);
+    if (!packet) return;
+
+    if (Array.isArray(packet.acceptedTargets)) {
+      if (packet.acceptedTargets.includes(targetIndex)) duelScoreHit(state, packet, targetIndex, false);
+      else duelScoreMiss(state, packet, targetIndex);
+    } else if (targetIndex === 4) {
+      if (packet.correctTarget === -1) duelScoreHit(state, packet, 4, true);
+      else duelScoreMiss(state, packet, 4);
+    } else if (packet.correctTarget === targetIndex) {
+      duelScoreHit(state, packet, targetIndex, false);
+    } else {
+      duelScoreMiss(state, packet, targetIndex);
+    }
+
+    state.packets = state.packets.filter((p) => p.id !== packet.id);
+    endDuelIfNeeded();
+  }
+
+  function updateDuel(dt) {
+    const config = getDifficultyConfig();
+    for (let pi = 0; pi < duelPlayers.length; pi += 1) {
+      const state = duelPlayers[pi];
+      if (state.lives <= 0) continue;
+      state.spawnTimer += dt;
+      const baseSpawnInterval = Math.max(0.48, 1.45 - state.level * 0.12);
+      const spawnInterval = baseSpawnInterval * config.spawnFactor;
+      if (state.spawnTimer >= spawnInterval) {
+        state.spawnTimer = 0;
+        duelSpawnPacket(state);
+      }
+
+      const keep = [];
+      for (let i = 0; i < state.packets.length; i += 1) {
+        const p = state.packets[i];
+        p.timeLeft -= dt;
+        p.y += p.speed * dt;
+        if (p.timeLeft <= 0 || p.y > GAME_H + 20) {
+          duelScoreMiss(state, p, -1);
+          continue;
+        }
+        keep.push(p);
+      }
+      state.packets = keep;
+    }
+    endDuelIfNeeded();
+  }
+
+  function drawDuelTargets(state) {
+    layoutTargetsForWidth(DUEL_LANE_W);
+    const config = getDifficultyConfig();
+    const now = performance.now();
+    for (let i = 0; i < targets.length; i += 1) {
+      const tr = targets[i];
+      const r = tr.rect;
+      if (r.w <= 0) continue;
+      const isFail = i === 4;
+      const isMulticast = i === 3;
+      const isPressed = state.targetPressFx[i] > now;
+      const hideRoute3 = i === 2 && !config.route3Enabled;
+      if (hideRoute3) continue;
+
+      ctx.save();
+      ctx.fillStyle = isFail ? "rgba(255, 91, 125, 0.14)" : isMulticast ? "rgba(255, 166, 77, 0.16)" : "rgba(40, 215, 255, 0.12)";
+      if (isPressed) {
+        ctx.fillStyle = isFail ? "rgba(255, 91, 125, 0.3)" : isMulticast ? "rgba(255, 166, 77, 0.34)" : "rgba(89, 255, 154, 0.28)";
+      }
+      ctx.strokeStyle = isFail ? "rgba(255, 91, 125, 0.9)" : isMulticast ? "rgba(255, 166, 77, 0.9)" : "rgba(40, 215, 255, 0.8)";
+      ctx.lineWidth = isPressed ? 2.5 : 1.5;
+      ctx.beginPath();
+      ctx.roundRect(r.x, r.y, r.w, r.h, 10);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#e7f7ff";
+      const compact = getCompactTargetLabel(i);
+      drawFittedTargetLabel(`[${tr.key}] ${compact}`, r.x + 8, r.y + 35, r.w - 16, 11, 7);
+      ctx.restore();
+    }
+  }
+
+  function drawDuelPackets(state) {
+    const priorityPacket = duelGetPriorityPacket(state);
+    const priorityId = priorityPacket ? priorityPacket.id : -1;
+    for (let i = 0; i < state.packets.length; i += 1) {
+      const p = state.packets[i];
+      const timerRatio = Math.max(0, p.timeLeft / p.maxTime);
+      const timerColor = timerRatio > 0.45 ? okColor : timerRatio > 0.2 ? "#ffd166" : badColor;
+      const isPriority = p.id === priorityId;
+      ctx.save();
+      ctx.fillStyle = "rgba(15, 25, 48, 0.92)";
+      ctx.strokeStyle = isPriority ? "rgba(255, 209, 102, 0.95)" : "rgba(40, 215, 255, 0.9)";
+      ctx.lineWidth = isPriority ? 2.2 : 1.4;
+      ctx.beginPath();
+      ctx.roundRect(p.x, p.y, p.w, p.h, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#e7f7ff";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+      ctx.fillRect(p.x + 6, p.y + 5, p.w - 12, 18);
+      ctx.font = "bold 13px Consolas, monospace";
+      const text = p.address.length > 30 ? `${p.address.slice(0, 30)}…` : p.address;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.85)";
+      ctx.strokeText(text, p.x + 9, p.y + 18);
+      ctx.fillStyle = "#e7f7ff";
+      ctx.fillText(text, p.x + 9, p.y + 18);
+      if (isPriority) {
+        ctx.fillStyle = "#ffd166";
+        ctx.font = "bold 10px Trebuchet MS";
+        ctx.fillText(t("packet.active"), p.x + p.w - 38, p.y + 10);
+      }
+      ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+      ctx.fillRect(p.x + 8, p.y + 28, p.w - 16, 9);
+      ctx.fillStyle = timerColor;
+      ctx.fillRect(p.x + 8, p.y + 28, (p.w - 16) * timerRatio, 9);
+      ctx.restore();
+    }
+  }
+
+  function drawDuelHUD(state, playerIndex) {
+    ctx.save();
+    ctx.fillStyle = "rgba(6, 12, 24, 0.72)";
+    ctx.fillRect(0, 0, DUEL_LANE_W, 58);
+    ctx.fillStyle = "#e7f7ff";
+    ctx.font = "bold 16px Trebuchet MS";
+    const playerLabel = playerIndex === 0 ? t("duel.p1") : t("duel.p2");
+    ctx.fillText(`${playerLabel} | ${t("hud.score")}: ${state.score} | ${t("hud.lives")}: ${state.lives} | ${t("hud.level")}: ${state.level}`, 12, 23);
+    ctx.font = "bold 13px Trebuchet MS";
+    ctx.fillStyle = "#9bffcb";
+    ctx.fillText(`${t("hud.correct")}: ${state.correctHits}`, 12, 46);
+    ctx.fillStyle = "#ff93b7";
+    ctx.fillText(`${t("hud.wrong")}: ${state.wrongHits}`, 140, 46);
+    ctx.fillStyle = "#9de8ff";
+    ctx.fillText(`${t("hud.combo")} x${state.comboStreak}`, 280, 46);
+    ctx.restore();
+  }
+
+  function drawDuelScene() {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(GAME_W / 2, 0);
+    ctx.lineTo(GAME_W / 2, GAME_H);
+    ctx.stroke();
+    ctx.restore();
+
+    for (let i = 0; i < duelPlayers.length; i += 1) {
+      const state = duelPlayers[i];
+      ctx.save();
+      const laneX = i * DUEL_LANE_W;
+      ctx.beginPath();
+      ctx.rect(laneX, 0, DUEL_LANE_W, GAME_H);
+      ctx.clip();
+      ctx.translate(laneX, 0);
+      drawDuelTargets(state);
+      drawDuelPackets(state);
+      drawDuelHUD(state, i);
+      ctx.restore();
+    }
+  }
+
   function pushGameLog(entry) {
     gameLog.push(entry);
   }
@@ -710,17 +1194,36 @@
       routeStats[i].hits = 0;
       routeStats[i].misses = 0;
     }
+    resetDuelGame();
+    resetRunMetrics();
   }
 
   function startGame() {
     if (difficultySelect) difficulty = difficultySelect.value;
     if (!DIFFICULTIES.includes(difficulty)) difficulty = "normal";
+    if (modeSelect) gameMode = modeSelect.value;
+    if (!MODES.includes(gameMode) || mobileMode) gameMode = "single";
+    if (gameMode === "duel" && shouldRunTutorial()) {
+      gameMode = "single";
+      if (modeSelect) modeSelect.value = "single";
+      addToast(t("tutorial.requiredSingle"), "#ffd166", 2.2, true);
+    }
+    applyTouchModePolicy();
     resetGame();
     running = true;
     syncDifficultySelect();
+    syncModeSelect();
+    syncTouchButton();
+    saveSettings();
     startOverlay.classList.add("hidden");
     endOverlay.classList.add("hidden");
     helpOverlay.classList.add("hidden");
+    if (gameMode !== "duel" && shouldRunTutorial()) {
+      startTutorialFlow();
+    } else {
+      tutorialMode = false;
+      tutorialOverlay.classList.add("hidden");
+    }
     addToast(t("toast.routeActive"), neon, 1.8);
   }
 
@@ -732,9 +1235,68 @@
     helpOverlay.classList.add("hidden");
   }
 
+  function shouldRunTutorial() {
+    return localStorage.getItem("ipv6gg_tutorial_done") !== "1";
+  }
+
+  function updateTutorialText() {
+    if (!tutorialText) return;
+    const total = tutorialPackets.length;
+    const step = Math.min(total, tutorialIndex + 1);
+    tutorialText.textContent = t("tutorial.step", { step, total });
+  }
+
+  function spawnTutorialPacket() {
+    if (tutorialIndex >= tutorialPackets.length) {
+      tutorialMode = false;
+      localStorage.setItem("ipv6gg_tutorial_done", "1");
+      saveSettings();
+      tutorialOverlay.classList.add("hidden");
+      addToast(t("tutorial.done"), okColor, 2.6, true);
+      return;
+    }
+
+    const seed = tutorialPackets[tutorialIndex];
+    const correctTarget = findBestTargetIndex(seed.address);
+    packets.push({
+      id: packetId,
+      x: 120,
+      y: 120,
+      w: 260,
+      h: 44,
+      address: seed.address,
+      acceptedTargets: seed.acceptedTargets || null,
+      timeLeft: 99,
+      maxTime: 99,
+      speed: 0,
+      correctTarget,
+      spawnedAt: packetId++
+    });
+    updateTutorialText();
+  }
+
+  function onTutorialPacketResolved(wasCorrect) {
+    if (!tutorialMode) return;
+    if (wasCorrect) tutorialIndex += 1;
+    spawnTutorialPacket();
+  }
+
+  function startTutorialFlow() {
+    tutorialMode = true;
+    tutorialIndex = 0;
+    tutorialOverlay.classList.remove("hidden");
+    packets = [];
+    spawnTutorialPacket();
+  }
+
   function endGame() {
+    if (gameMode === "duel") {
+      endDuelIfNeeded();
+      return;
+    }
     running = false;
     syncDifficultySelect();
+    syncModeSelect();
     syncMobileDifficultyState();
     playGameOverSound();
     triggerImpact("gameover");
@@ -744,6 +1306,7 @@
     }
     endScoreText.textContent = `${t("end.score")}: ${score}`;
     endHighscoreText.textContent = `${t("end.highscore")}: ${highscore}`;
+    renderRunMetrics();
     renderStatsCharts();
     if (endPanel) endPanel.classList.remove("hidden");
     if (gameLogPanel) gameLogPanel.classList.add("hidden");
@@ -871,6 +1434,9 @@
     score += 10;
     correctHits += 1;
     comboStreak += 1;
+    runMetrics.hits += 1;
+    runMetrics.comboSum += comboStreak;
+    runMetrics.comboCount += 1;
     const hitPoints = 10 + (comboStreak >= 5 ? COMBO_BONUS : 0);
     emitShaderPacketFeedback("hit", { target: target.label, combo: comboStreak });
     createParticles(packet.x + packet.w / 2, packet.y + packet.h / 2, okColor);
@@ -890,12 +1456,14 @@
   function scoreMiss(packet, reason, chosenTargetIndex) {
     const comboBeforeReset = comboStreak;
     const hardPenalty = difficulty === "hard";
-    if (hardPenalty) {
-      score = Math.max(0, (level - 1) * POINTS_PER_LEVEL);
-    }
+    score = core && core.applyHardPenalty
+      ? core.applyHardPenalty(score, level, POINTS_PER_LEVEL, hardPenalty)
+      : (hardPenalty ? Math.max(0, (level - 1) * POINTS_PER_LEVEL) : score);
     comboStreak = 0;
     lives -= 1;
     wrongHits += 1;
+    runMetrics.misses += 1;
+    runMetrics.lifeLosses += 1;
     recordPacketStats(packet, chosenTargetIndex >= 0 && chosenTargetIndex < routeStats.length ? chosenTargetIndex : -1, false);
     const chosenLabel = chosenTargetIndex >= 0 && targets[chosenTargetIndex] ? (chosenTargetIndex === 4 ? t("targets.fail") : targets[chosenTargetIndex].label) : null;
     const correctLabel = packet.correctTarget >= 0 && targets[packet.correctTarget] ? targets[packet.correctTarget].label : null;
@@ -920,16 +1488,17 @@
 
     if (!target) {
       scoreMiss(packet, "toast.unknownTarget", -1);
-      return;
+      return false;
     }
 
     if (Array.isArray(packet.acceptedTargets)) {
       if (packet.acceptedTargets.includes(targetIndex)) {
         scoreHit(packet, target);
+        return true;
       } else {
         scoreMiss(packet, "toast.specialOnly123", targetIndex);
+        return false;
       }
-      return;
     }
 
     if (targetIndex === 4) {
@@ -950,21 +1519,27 @@
         const isolateLivesDelta = lives - livesBeforeLevel;
         pushGameLog({ type: "isolate", address: packet.address, combo: comboStreak, points: isolatePoints, livesDelta: isolateLivesDelta, lives, score });
         logScoreProgress("isolate");
+        return true;
       } else {
         scoreMiss(packet, "toast.wrongCouldRoute", 4);
+        return false;
       }
-      return;
     }
 
     if (packet.correctTarget === targetIndex) {
       scoreHit(packet, target);
+      return true;
     } else {
       scoreMiss(packet, "toast.wrongNetwork", targetIndex);
+      return false;
     }
   }
 
-  function removePacket(id) {
+  function removePacket(id, advanceTutorialStep) {
     packets = packets.filter((p) => p.id !== id);
+    if (tutorialMode && packets.length === 0) {
+      onTutorialPacketResolved(Boolean(advanceTutorialStep));
+    }
   }
 
   function hitPacketFromPos(x, y) {
@@ -991,6 +1566,7 @@
   }
 
   function onPointerDown(ev) {
+    if (gameMode === "duel") return;
     if (!running) return;
     const pos = toWorldCoords(ev.clientX, ev.clientY);
     pointer = pos;
@@ -1004,6 +1580,7 @@
   }
 
   function onPointerMove(ev) {
+    if (gameMode === "duel") return;
     const pos = toWorldCoords(ev.clientX, ev.clientY);
     pointer = pos;
     if (!running || !draggingPacket) return;
@@ -1012,6 +1589,7 @@
   }
 
   function onPointerUp(ev) {
+    if (gameMode === "duel") return;
     if (!running || !draggingPacket) return;
     const centerX = draggingPacket.x + draggingPacket.w / 2;
     const centerY = draggingPacket.y + draggingPacket.h / 2;
@@ -1020,8 +1598,8 @@
     const packetRef = draggingPacket;
     draggingPacket = null;
     if (targetIndex !== -1) {
-      resolvePacketToTarget(packetRef, targetIndex);
-      removePacket(id);
+      const wasCorrect = resolvePacketToTarget(packetRef, targetIndex);
+      removePacket(id, wasCorrect);
     }
     try {
       canvas.releasePointerCapture(ev.pointerId);
@@ -1031,6 +1609,7 @@
   }
 
   function handleKeyRoute(index) {
+    if (gameMode === "duel") return;
     if (!running) return;
     if (index < 0 || index > 4) return;
     if (!getDifficultyConfig().route3Enabled && index === 2) return;
@@ -1039,8 +1618,8 @@
     const chosen = getPriorityPacket();
     if (!chosen) return;
 
-    resolvePacketToTarget(chosen, index);
-    removePacket(chosen.id);
+    const wasCorrect = resolvePacketToTarget(chosen, index);
+    removePacket(chosen.id, wasCorrect);
   }
 
   function getPriorityPacket() {
@@ -1105,6 +1684,33 @@
     ctx.restore();
   }
 
+  function getCompactTargetLabel(index) {
+    if (index === 0) return "R1";
+    if (index === 1) return "R2";
+    if (index === 2) return "R3";
+    if (index === 3) return "MC";
+    return "DROP";
+  }
+
+  function drawFittedTargetLabel(text, x, y, maxWidth, preferredFontPx = 11, minFontPx = 7) {
+    let size = preferredFontPx;
+    while (size > minFontPx) {
+      ctx.font = `bold ${size}px Trebuchet MS`;
+      if (ctx.measureText(text).width <= maxWidth) break;
+      size -= 1;
+    }
+
+    let out = text;
+    if (ctx.measureText(out).width > maxWidth) {
+      while (out.length > 1 && ctx.measureText(out + "…").width > maxWidth) {
+        out = out.slice(0, -1);
+      }
+      out += "…";
+    }
+
+    ctx.fillText(out, x, y);
+  }
+
   function drawTargets() {
     layoutTargets();
     const config = getDifficultyConfig();
@@ -1143,13 +1749,13 @@
 
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#e7f7ff";
-      ctx.font = "bold 14px Trebuchet MS";
+      ctx.font = "bold 12px Trebuchet MS";
       const displayLabel = i === 4 ? t("targets.fail") : tr.label;
-      ctx.fillText(`[${tr.key}] ${displayLabel}`, r.x + 10, r.y + 30);
-      ctx.font = "12px Trebuchet MS";
+      ctx.fillText(`[${tr.key}] ${displayLabel}`, r.x + 10, r.y + 27);
+      ctx.font = "10px Trebuchet MS";
       ctx.fillStyle = "rgba(231, 247, 255, 0.78)";
       const subtitle = i <= 2 ? t("targets.subtitleBroadcast") : i === 3 ? t("targets.subtitleMulticast") : t("targets.subtitleBlock");
-      ctx.fillText(subtitle, r.x + 10, r.y + 52);
+      ctx.fillText(subtitle, r.x + 10, r.y + 45);
       ctx.restore();
     }
   }
@@ -1308,12 +1914,19 @@
   function update(dt) {
     if (!running) return;
 
-    spawnTimer += dt;
-    const baseSpawnInterval = Math.max(0.48, 1.45 - level * 0.12);
-    const spawnInterval = baseSpawnInterval * getDifficultyConfig().spawnFactor;
-    if (spawnTimer >= spawnInterval) {
-      spawnTimer = 0;
-      spawnPacket();
+    if (gameMode === "duel") {
+      updateDuel(dt);
+      return;
+    }
+
+    if (!tutorialMode) {
+      spawnTimer += dt;
+      const baseSpawnInterval = Math.max(0.48, 1.45 - level * 0.12);
+      const spawnInterval = baseSpawnInterval * getDifficultyConfig().spawnFactor;
+      if (spawnTimer >= spawnInterval) {
+        spawnTimer = 0;
+        spawnPacket();
+      }
     }
 
     const keep = [];
@@ -1321,7 +1934,7 @@
       const p = packets[i];
       p.timeLeft -= dt;
 
-      if (!(draggingPacket && draggingPacket.id === p.id)) {
+      if (!tutorialMode && !(draggingPacket && draggingPacket.id === p.id)) {
         p.y += p.speed * dt;
       }
 
@@ -1349,12 +1962,16 @@
     update(dt);
     updateToasts(dt);
     drawBackground(ts);
-    drawTargets();
-    drawToastLayer(false);
-    drawPackets();
-    drawParticles(dt);
-    drawToastLayer(true);
-    drawHUD();
+    if (gameMode === "duel") {
+      drawDuelScene();
+    } else {
+      drawTargets();
+      drawToastLayer(false);
+      drawPackets();
+      drawParticles(dt);
+      drawToastLayer(true);
+      drawHUD();
+    }
     if (running) syncMobileDifficultyState();
 
     requestAnimationFrame(gameLoop);
@@ -1393,6 +2010,7 @@
       bgm.pause();
     }
     syncMusicButton();
+    saveSettings();
   });
 
   soundBtn.addEventListener("click", () => {
@@ -1404,12 +2022,27 @@
       audioCtx.resume();
     }
     if (soundMode === "effekt") beep(520, 0.08, "square", 0.09);
+    saveSettings();
   });
 
   touchBtn.addEventListener("click", () => {
-    touchEnabled = !touchEnabled;
+    if (gameMode === "duel") return;
+    touchEnabledPreference = !touchEnabledPreference;
+    touchEnabled = touchEnabledPreference;
     syncTouchButton();
+    saveSettings();
   });
+
+  if (modeSelect) {
+    modeSelect.addEventListener("change", () => {
+      gameMode = modeSelect.value;
+      if (!MODES.includes(gameMode) || mobileMode) gameMode = "single";
+      applyTouchModePolicy();
+      syncModeSelect();
+      syncTouchButton();
+      saveSettings();
+    });
+  }
 
   helpBtn.addEventListener("click", () => {
     openHelp();
@@ -1429,6 +2062,17 @@
   helpOverlay.addEventListener("click", (ev) => {
     if (ev.target === helpOverlay) closeHelp();
   });
+
+  if (tutorialSkipBtn) {
+    tutorialSkipBtn.addEventListener("click", () => {
+      tutorialMode = false;
+      packets = [];
+      tutorialOverlay.classList.add("hidden");
+      localStorage.setItem("ipv6gg_tutorial_done", "1");
+      saveSettings();
+      addToast(t("tutorial.skipped"), "#ffd166", 2.0, true);
+    });
+  }
 
   // Mobile route buttons
   const mobileRouteButtons = document.querySelectorAll(".mobile-btn");
@@ -1475,6 +2119,15 @@
     }
 
     tryStartMusic();
+    if (gameMode === "duel") {
+      if (["1", "2", "3", "4", "5"].includes(ev.key)) {
+        handleDuelKeyRoute(0, Number(ev.key) - 1);
+      }
+      if (["6", "7", "8", "9", "0"].includes(ev.key)) {
+        const map = { "6": 0, "7": 1, "8": 2, "9": 3, "0": 4 };
+        handleDuelKeyRoute(1, map[ev.key]);
+      }
+    }
     if (["1", "2", "3", "4", "5"].includes(ev.key)) {
       handleKeyRoute(Number(ev.key) - 1);
     }
@@ -1522,18 +2175,29 @@
   }
 
   addToast(t("toast.welcome"), neon, 2.0);
+  applySettings();
   layoutTargets();
   if (langSelect) {
     langSelect.value = window.i18n.getLanguage();
     langSelect.addEventListener("change", () => {
       window.i18n.setLanguage(langSelect.value);
       applyUITranslations();
+      saveSettings();
+    });
+  }
+  if (difficultySelect) {
+    difficultySelect.value = difficulty;
+    difficultySelect.addEventListener("change", () => {
+      difficulty = difficultySelect.value;
+      saveSettings();
     });
   }
   window.addEventListener("ipv6gg:lang", applyUITranslations);
   window.addEventListener("pointerdown", tryStartMusic, { passive: true });
   window.addEventListener("touchstart", tryStartMusic, { passive: true });
   applyUITranslations();
+  syncModeSelect();
+  saveSettings();
   requestAnimationFrame((ts) => {
     lastTime = ts;
     gameLoop(ts);

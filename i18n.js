@@ -12,7 +12,7 @@
       btn: { music: "[M]usik", sound: "[E]ffekte", touch: "[T]ouch", help: "[H]ilfe" },
       hotkey: { music: "m", sound: "e", touch: "t", help: "h" },
       toggle: { on: "An", off: "Aus" },
-      aria: { music: "Musik umschalten", sound: "Effekte umschalten", touch: "Touch-Buttons umschalten", help: "Spielhilfe anzeigen", lang: "Sprache wählen", helpLink: "Hilfe anzeigen", difficulty: "Schwierigkeit wählen" },
+      aria: { music: "Musik umschalten", sound: "Effekte umschalten", touch: "Touch-Buttons umschalten", help: "Spielhilfe anzeigen", lang: "Sprache wählen", helpLink: "Hilfe anzeigen", difficulty: "Schwierigkeit wählen", mode: "Spielmodus wählen", routeButton: "Route {{route}}" },
       start: {
         intro1: "Du bist ein Router. Pakete fallen von oben mit IPv6-Zielen.",
         intro2: "Route per Tasten 1-5, oder Buttons (Touch=on) zum passenden Ziel.",
@@ -21,7 +21,10 @@
         helpLink: "[H]ilfe",
         btn: "Spiel starten!",
       },
-      end: { title: "Verbindung getrennt!", score: "Dein Score", highscore: "Highscore", btn: "Nochmal spielen" },
+      end: { title: "Verbindung getrennt!", score: "Dein Score", highscore: "Highscore", btn: "Nochmal spielen", metrics: "Trefferquote: {{hitRate}}% | Durchschnittscombo: {{avgCombo}} | Lebensverlust/Min: {{lifeLossesPerMin}}", duelTitle: "Duell beendet", duelScore: "P1: {{p1}} | P2: {{p2}}", duelResult: "Ergebnis: {{result}}" },
+      mode: { single: "Single", duel: "Duell" },
+      tutorial: { step: "Tutorial {{step}}/{{total}}: Route das gezeigte Paket korrekt.", skip: "Tutorial überspringen", done: "Tutorial abgeschlossen.", skipped: "Tutorial übersprungen.", requiredSingle: "Tutorial läuft zuerst im Single-Modus." },
+      duel: { p1: "Spieler 1", p2: "Spieler 2", winnerP1: "Spieler 1 gewinnt", winnerP2: "Spieler 2 gewinnt", tie: "Unentschieden" },
       help: {
         title: "So funktioniert ipv6gg",
         p1: "Du spielst einen Router und musst jedes einfliegende IPv6-Paket an das richtige Zielnetz schicken, bevor seine Zeit abläuft.",
@@ -84,7 +87,7 @@
       btn: { music: "[M]usic", sound: "[E]ffects", touch: "[T]ouch", help: "[H]elp" },
       hotkey: { music: "m", sound: "e", touch: "t", help: "h" },
       toggle: { on: "On", off: "Off" },
-      aria: { music: "Toggle music", sound: "Toggle effects", touch: "Toggle touch buttons", help: "Show help", lang: "Choose language", helpLink: "Show help", difficulty: "Choose difficulty" },
+      aria: { music: "Toggle music", sound: "Toggle effects", touch: "Toggle touch buttons", help: "Show help", lang: "Choose language", helpLink: "Show help", difficulty: "Choose difficulty", mode: "Choose game mode", routeButton: "Route {{route}}" },
       start: {
         intro1: "You are a router. Packets fall from above with IPv6 destinations.",
         intro2: "Route with keys 1-5 or the on-screen buttons (touch=on) to the correct target.",
@@ -93,7 +96,10 @@
         helpLink: "[H]elp",
         btn: "Start game!",
       },
-      end: { title: "Connection lost!", score: "Your score", highscore: "Highscore", btn: "Play again" },
+      end: { title: "Connection lost!", score: "Your score", highscore: "Highscore", btn: "Play again", metrics: "Hit rate: {{hitRate}}% | Avg combo: {{avgCombo}} | Life loss/min: {{lifeLossesPerMin}}", duelTitle: "Duel finished", duelScore: "P1: {{p1}} | P2: {{p2}}", duelResult: "Result: {{result}}" },
+      mode: { single: "Single", duel: "Duel" },
+      tutorial: { step: "Tutorial {{step}}/{{total}}: Route the shown packet correctly.", skip: "Skip tutorial", done: "Tutorial completed.", skipped: "Tutorial skipped.", requiredSingle: "Tutorial runs first in single mode." },
+      duel: { p1: "Player 1", p2: "Player 2", winnerP1: "Player 1 wins", winnerP2: "Player 2 wins", tie: "Draw" },
       help: {
         title: "How ipv6gg works",
         p1: "You play a router and must send each incoming IPv6 packet to the correct destination network before its time runs out.",
@@ -156,7 +162,7 @@
       btn: { music: "[M]usique", sound: "[E]ffets", touch: "[T]ouch", help: "[A]ide" },
       hotkey: { music: "m", sound: "e", touch: "t", help: "a" },
       toggle: { on: "Activé", off: "Désactivé" },
-      aria: { music: "Activer la musique", sound: "Activer les effets", touch: "Activer les boutons tactiles", help: "Afficher l'aide", lang: "Choisir la langue", helpLink: "Afficher l'aide", difficulty: "Choisir la difficulté" },
+      aria: { music: "Activer la musique", sound: "Activer les effets", touch: "Activer les boutons tactiles", help: "Afficher l'aide", lang: "Choisir la langue", helpLink: "Afficher l'aide", difficulty: "Choisir la difficulté", mode: "Choisir le mode de jeu", routeButton: "Route {{route}}" },
       start: {
         intro1: "Tu es un routeur. Les paquets tombent avec des destinations IPv6.",
         intro2: "Route avec les touches 1-5 ou les boutons (tactile=on) vers la bonne cible.",
@@ -165,7 +171,10 @@
         helpLink: "[A]ide",
         btn: "Jouer !",
       },
-      end: { title: "Connexion perdue !", score: "Votre score", highscore: "Meilleur score", btn: "Rejouer" },
+      end: { title: "Connexion perdue !", score: "Votre score", highscore: "Meilleur score", btn: "Rejouer", metrics: "Taux de réussite : {{hitRate}}% | Combo moyen : {{avgCombo}} | Pertes de vie/min : {{lifeLossesPerMin}}", duelTitle: "Duel terminé", duelScore: "J1 : {{p1}} | J2 : {{p2}}", duelResult: "Résultat : {{result}}" },
+      mode: { single: "Solo", duel: "Duel" },
+      tutorial: { step: "Tutoriel {{step}}/{{total}} : Route correctement le paquet affiché.", skip: "Passer le tutoriel", done: "Tutoriel terminé.", skipped: "Tutoriel ignoré.", requiredSingle: "Le tutoriel se joue d'abord en mode solo." },
+      duel: { p1: "Joueur 1", p2: "Joueur 2", winnerP1: "Joueur 1 gagne", winnerP2: "Joueur 2 gagne", tie: "Egalite" },
       help: {
         title: "Comment fonctionne ipv6gg",
         p1: "Tu joues un routeur et dois envoyer chaque paquet IPv6 vers le bon réseau avant expiration.",
@@ -228,7 +237,7 @@
       btn: { music: "[M]úsica", sound: "[E]fectos", touch: "[T]áctil", help: "[A]yuda" },
       hotkey: { music: "m", sound: "e", touch: "t", help: "a" },
       toggle: { on: "Activado", off: "Desactivado" },
-      aria: { music: "Activar música", sound: "Activar efectos", touch: "Activar botones táctiles", help: "Mostrar ayuda", lang: "Elegir idioma", helpLink: "Mostrar ayuda", difficulty: "Elegir dificultad" },
+      aria: { music: "Activar música", sound: "Activar efectos", touch: "Activar botones táctiles", help: "Mostrar ayuda", lang: "Elegir idioma", helpLink: "Mostrar ayuda", difficulty: "Elegir dificultad", mode: "Elegir modo de juego", routeButton: "Ruta {{route}}" },
       start: {
         intro1: "Eres un router. Los paquetes caen con destinos IPv6.",
         intro2: "Enruta con teclas 1-5 o los botones (táctil=on) al objetivo correcto.",
@@ -237,7 +246,10 @@
         helpLink: "[A]yuda",
         btn: "¡Jugar!",
       },
-      end: { title: "¡Conexión perdida!", score: "Tu puntuación", highscore: "Récord", btn: "Jugar de nuevo" },
+      end: { title: "¡Conexión perdida!", score: "Tu puntuación", highscore: "Récord", btn: "Jugar de nuevo", metrics: "Acierto: {{hitRate}}% | Combo promedio: {{avgCombo}} | Pérdida de vidas/min: {{lifeLossesPerMin}}", duelTitle: "Duelo terminado", duelScore: "J1: {{p1}} | J2: {{p2}}", duelResult: "Resultado: {{result}}" },
+      mode: { single: "Individual", duel: "Duelo" },
+      tutorial: { step: "Tutorial {{step}}/{{total}}: Enruta correctamente el paquete mostrado.", skip: "Saltar tutorial", done: "Tutorial completado.", skipped: "Tutorial omitido.", requiredSingle: "El tutorial se ejecuta primero en modo individual." },
+      duel: { p1: "Jugador 1", p2: "Jugador 2", winnerP1: "Gana Jugador 1", winnerP2: "Gana Jugador 2", tie: "Empate" },
       help: {
         title: "Cómo funciona ipv6gg",
         p1: "Juegas un router y debes enviar cada paquete IPv6 al destino correcto antes de que se agote el tiempo.",
@@ -309,14 +321,25 @@
     document.documentElement.lang = currentLang;
   }
 
+  const missingKeysSeen = new Set();
+
+  function warnMissing(lang, key) {
+    const id = lang + ":" + key;
+    if (missingKeysSeen.has(id)) return;
+    missingKeysSeen.add(id);
+    console.warn("[i18n] missing key", key, "in", lang);
+  }
+
   function t(key, params) {
     const parts = key.split(".");
     let v = strings[currentLang];
     for (let i = 0; i < parts.length && v != null; i++) v = v[parts[i]];
     if (v == null && currentLang !== "de") {
+      warnMissing(currentLang, key);
       v = strings.de;
       for (let i = 0; i < parts.length && v != null; i++) v = v[parts[i]];
     }
+    if (v == null) warnMissing("de", key);
     const s = (typeof v === "string" ? v : key);
     if (!params) return s;
     let out = s;
