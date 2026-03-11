@@ -2,6 +2,8 @@
 
 IPv6 good game – ein kleines Browser-game zum Thema IPv6.
 
+**Repository:** [https://github.com/FullByte/ipv6gg](https://github.com/FullByte/ipv6gg)
+
 ## Überblick
 
 Dieses Projekt soll spielerisch den Umgang mit IPv6-Adressen erleichtern.  
@@ -45,5 +47,6 @@ Danach im Browser `http://localhost:666` öffnen.
 
 ## Contributing
 
-Pull Requests und Vorschläge zu Spielmechaniken, UX oder Code-Struktur sind willkommen.
+Pull Requests und Vorschläge zu Spielmechaniken, UX oder Code-Struktur sind willkommen.  
+→ [ipv6gg auf GitHub](https://github.com/FullByte/ipv6gg)
 

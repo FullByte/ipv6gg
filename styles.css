@@ -571,6 +571,14 @@ body {
   color: #9de8ff;
 }
 
+.help-panel a {
+  color: var(--neon);
+  text-decoration: none;
+}
+.help-panel a:hover {
+  text-decoration: underline;
+}
+
 .panel button {
   margin-top: 10px;
   border: 1px solid var(--neon);

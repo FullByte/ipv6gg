@@ -254,6 +254,11 @@
       const el = document.getElementById(id);
       if (el) el.textContent = t(i < 7 ? "help.p" + (i + 1) : "help.hotkeys");
     });
+    const helpRepoEl = document.getElementById("helpRepo");
+    if (helpRepoEl) {
+      const repoUrl = "https://github.com/FullByte/ipv6gg";
+      helpRepoEl.innerHTML = '<a href="' + repoUrl + '" target="_blank" rel="noopener noreferrer">' + (t("help.repo") || "Source code on GitHub") + "</a>";
+    }
     if (closeHelpBtn) closeHelpBtn.textContent = t("help.close");
     syncMusicButton();
     syncSoundButton();
