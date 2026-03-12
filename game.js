@@ -96,6 +96,8 @@
   const tutorialPackets = [
     { address: "2001:db8:1::abcd", acceptedTargets: null },
     { address: "2001:db8:2::b00c", acceptedTargets: null },
+    { address: "2a10:42:3::cafe", acceptedTargets: null },
+    { address: "ff0e::1", acceptedTargets: [0, 1, 2] },
     { address: "ff02::1", acceptedTargets: null },
     { address: "2001:db8:9::dead", acceptedTargets: null }
   ];
@@ -142,7 +144,7 @@
     { key: "4", hits: 0, misses: 0 },
     { key: "5", hits: 0, misses: 0 }
   ];
-  let routeStatsChart = null;
+  let routeStatsCharts = [];
 
   let audioCtx = null;
   let targetPressFx = [0, 0, 0, 0, 0];
@@ -637,6 +639,12 @@
     playEffectUrl(`sound/levelup-${lang}-${variant}.mp3`);
   }
 
+  function playTutorialAchievementMp3() {
+    if (soundMode !== "person") return;
+    const lang = window.i18n ? window.i18n.getLanguage() : "de";
+    playEffectUrl(`sound/tutorial-achievement-${lang}.mp3`);
+  }
+
   function addToast(text, color = neon, life = 1.2, foreground = false) {
     const doubledLife = life * 2;
     toasts.push({ text, color, life: doubledLife, maxLife: doubledLife, foreground });
@@ -930,18 +938,51 @@
 
   function duelScoreHit(state, packet, targetIndex, isIsolate) {
     const basePoints = isIsolate ? 5 : 10;
+    const livesBeforeLevel = state.lives;
     state.score += basePoints;
     state.correctHits += 1;
     state.comboStreak += 1;
     state.metrics.hits += 1;
     state.metrics.comboSum += state.comboStreak;
     state.metrics.comboCount += 1;
-    if (state.comboStreak >= 5) state.score += COMBO_BONUS;
+    const comboBonus = state.comboStreak >= 5 ? COMBO_BONUS : 0;
+    if (comboBonus > 0) state.score += comboBonus;
     if (targetIndex >= 0 && targetIndex < state.routeStats.length) state.routeStats[targetIndex].hits += 1;
     duelLevelCheck(state);
+
+    const livesDelta = state.lives - livesBeforeLevel;
+    const points = basePoints + comboBonus;
+    if (isIsolate) {
+      pushGameLog({
+        playerId: state.playerId,
+        type: "isolate",
+        address: packet.address,
+        combo: state.comboStreak,
+        points,
+        livesDelta,
+        lives: state.lives,
+        score: state.score
+      });
+      return;
+    }
+
+    const target = targetIndex >= 0 && targets[targetIndex] ? targets[targetIndex] : null;
+    pushGameLog({
+      playerId: state.playerId,
+      type: "hit",
+      address: packet.address,
+      targetKey: target ? target.key : "?",
+      targetLabel: target ? target.label : "-",
+      combo: state.comboStreak,
+      points,
+      livesDelta,
+      lives: state.lives,
+      score: state.score
+    });
   }
 
-  function duelScoreMiss(state, packet, chosenTargetIndex) {
+  function duelScoreMiss(state, packet, chosenTargetIndex, reasonKey = "toast.wrongNetwork", eventType = "miss") {
+    const comboBeforeReset = state.comboStreak;
     const hardPenalty = difficulty === "hard";
     state.score = core && core.applyHardPenalty
       ? core.applyHardPenalty(state.score, state.level, POINTS_PER_LEVEL, hardPenalty)
@@ -952,6 +993,43 @@
     state.metrics.misses += 1;
     state.metrics.lifeLosses += 1;
     if (chosenTargetIndex >= 0 && chosenTargetIndex < state.routeStats.length) state.routeStats[chosenTargetIndex].misses += 1;
+
+    if (eventType === "timeout" || eventType === "lost") {
+      pushGameLog({
+        playerId: state.playerId,
+        type: eventType,
+        address: packet.address,
+        correctTarget: packet.correctTarget,
+        correctLabel: packet.correctTarget >= 0 && targets[packet.correctTarget] ? targets[packet.correctTarget].label : null,
+        combo: comboBeforeReset,
+        points: 0,
+        livesDelta: -1,
+        lives: state.lives,
+        score: state.score
+      });
+      return;
+    }
+
+    const chosenLabel = chosenTargetIndex >= 0 && targets[chosenTargetIndex]
+      ? (chosenTargetIndex === 4 ? t("targets.fail") : targets[chosenTargetIndex].label)
+      : null;
+    const correctLabel = packet.correctTarget >= 0 && targets[packet.correctTarget] ? targets[packet.correctTarget].label : null;
+    pushGameLog({
+      playerId: state.playerId,
+      type: "miss",
+      address: packet.address,
+      reasonKey,
+      chosenTargetIndex,
+      chosenLabel,
+      correctTarget: packet.correctTarget,
+      correctLabel,
+      combo: comboBeforeReset,
+      points: 0,
+      livesDelta: -1,
+      lives: state.lives,
+      score: state.score,
+      hardPenalty
+    });
   }
 
   function endDuelIfNeeded() {
@@ -1012,14 +1090,14 @@
 
     if (Array.isArray(packet.acceptedTargets)) {
       if (packet.acceptedTargets.includes(targetIndex)) duelScoreHit(state, packet, targetIndex, false);
-      else duelScoreMiss(state, packet, targetIndex);
+      else duelScoreMiss(state, packet, targetIndex, "toast.specialOnly123", "miss");
     } else if (targetIndex === 4) {
       if (packet.correctTarget === -1) duelScoreHit(state, packet, 4, true);
-      else duelScoreMiss(state, packet, 4);
+      else duelScoreMiss(state, packet, 4, "toast.wrongCouldRoute", "miss");
     } else if (packet.correctTarget === targetIndex) {
       duelScoreHit(state, packet, targetIndex, false);
     } else {
-      duelScoreMiss(state, packet, targetIndex);
+      duelScoreMiss(state, packet, targetIndex, "toast.wrongNetwork", "miss");
     }
 
     state.packets = state.packets.filter((p) => p.id !== packet.id);
@@ -1045,7 +1123,8 @@
         p.timeLeft -= dt;
         p.y += p.speed * dt;
         if (p.timeLeft <= 0 || p.y > GAME_H + 20) {
-          duelScoreMiss(state, p, -1);
+          const eventType = p.timeLeft <= 0 ? "timeout" : "lost";
+          duelScoreMiss(state, p, -1, eventType === "timeout" ? "toast.timeout" : "toast.packetLost", eventType);
           continue;
         }
         keep.push(p);
@@ -1243,7 +1322,61 @@
     if (!tutorialText) return;
     const total = tutorialPackets.length;
     const step = Math.min(total, tutorialIndex + 1);
-    tutorialText.textContent = t("tutorial.step", { step, total });
+    const base = t("tutorial.step", { step, total });
+    const helpRef = t("tutorial.helpRef");
+    tutorialText.textContent = [base, helpRef].filter(Boolean).join(" ");
+  }
+
+  function getTutorialCorrection(packet) {
+    if (Array.isArray(packet.acceptedTargets) && packet.acceptedTargets.length) {
+      const validKeys = packet.acceptedTargets
+        .filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < targets.length)
+        .map((idx) => targets[idx].key);
+      const firstKey = validKeys[0] || "?";
+      const keyList = validKeys.join("/");
+      return {
+        key: firstKey,
+        keyDisplay: keyList || firstKey,
+        reason: t("tutorial.reasonSpecial", { keys: keyList || firstKey })
+      };
+    }
+
+    if (packet.correctTarget === -1) {
+      return {
+        key: "5",
+        keyDisplay: "5",
+        reason: t("tutorial.reasonNoRoute")
+      };
+    }
+
+    const target = packet.correctTarget >= 0 && targets[packet.correctTarget] ? targets[packet.correctTarget] : null;
+    if (!target) {
+      return {
+        key: "?",
+        keyDisplay: "?",
+        reason: t("toast.unknownTarget")
+      };
+    }
+
+    return {
+      key: target.key,
+      keyDisplay: target.key,
+      reason: t("tutorial.reasonPrefix", { prefix: target.prefix || target.label })
+    };
+  }
+
+  function playTutorialCompleteAchievement() {
+    const achievementLabel = t("tutorial.achievement") || t("tutorial.done");
+    emitShaderCombo(achievementLabel, tutorialPackets.length, "levelup");
+    triggerImpact("levelup");
+    createParticles(GAME_W * 0.5, GAME_H * 0.32, "#a7ff8a");
+    addToast(t("tutorial.done"), "#a7ff8a", 3.0, true);
+
+    if (soundMode === "person") {
+      playTutorialAchievementMp3();
+    } else if (soundMode === "effekt") {
+      playComboSignatureSound(10, "mega");
+    }
   }
 
   function spawnTutorialPacket() {
@@ -1252,7 +1385,7 @@
       localStorage.setItem("ipv6gg_tutorial_done", "1");
       saveSettings();
       tutorialOverlay.classList.add("hidden");
-      addToast(t("tutorial.done"), okColor, 2.6, true);
+      playTutorialCompleteAchievement();
       return;
     }
 
@@ -1321,6 +1454,11 @@
     gameLog.forEach((entry) => {
       const li = document.createElement("li");
       let text = "";
+      const playerPrefix = entry.playerId === 1
+        ? `[${t("duel.p1")}] `
+        : entry.playerId === 2
+          ? `[${t("duel.p2")}] `
+          : "";
       const points = entry.points != null ? entry.points : 0;
       const combo = entry.combo != null ? entry.combo : 0;
       const score = entry.score != null ? entry.score : 0;
@@ -1346,7 +1484,7 @@
       } else {
         text = entry.address || "";
       }
-      li.textContent = text;
+      li.textContent = playerPrefix + text;
       li.className = "game-log-entry game-log-" + (entry.type || "");
       gameLogList.appendChild(li);
     });
@@ -1364,11 +1502,9 @@
     const routeCanvas = document.getElementById("routeStatsChart");
     if (!routeCanvas || typeof Chart === "undefined") return;
 
-    const routeLabels = routeStats.map((r) => r.key);
-    const routeHits = routeStats.map((r) => r.hits);
-    const routeMisses = routeStats.map((r) => r.misses);
+    routeStatsCharts.forEach((chart) => chart.destroy());
+    routeStatsCharts = [];
 
-    if (routeStatsChart) routeStatsChart.destroy();
     const chartOpts = {
       responsive: true,
       maintainAspectRatio: false,
@@ -1390,18 +1526,59 @@
         }
       }
     };
-    routeStatsChart = new Chart(routeCanvas.getContext("2d"), {
-      type: "bar",
-      data: {
-        labels: routeLabels,
-        datasets: [
-          { label: t("hud.correct"), data: routeHits, backgroundColor: "rgba(89, 255, 154, 0.7)" },
-          { label: t("hud.wrong"), data: routeMisses, backgroundColor: "rgba(255, 76, 138, 0.75)" }
-        ]
-      },
-      options: chartOpts
-    });
 
+    const renderRouteChart = (canvas, stats, titleText) => {
+      if (!canvas) return;
+      const routeLabels = stats.map((r) => r.key);
+      const routeHits = stats.map((r) => r.hits);
+      const routeMisses = stats.map((r) => r.misses);
+      const opts = {
+        ...chartOpts,
+        plugins: {
+          ...chartOpts.plugins,
+          title: {
+            ...chartOpts.plugins.title,
+            text: titleText
+          }
+        }
+      };
+      const chart = new Chart(canvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: routeLabels,
+          datasets: [
+            { label: t("hud.correct"), data: routeHits, backgroundColor: "rgba(89, 255, 154, 0.7)" },
+            { label: t("hud.wrong"), data: routeMisses, backgroundColor: "rgba(255, 76, 138, 0.75)" }
+          ]
+        },
+        options: opts
+      });
+      routeStatsCharts.push(chart);
+    };
+
+    const endStats = document.querySelector("#endPanel .end-stats");
+    if (gameMode === "duel") {
+      let p2Wrap = document.getElementById("routeStatsWrapP2");
+      let p2Canvas = document.getElementById("routeStatsChartP2");
+      if (!p2Wrap && endStats) {
+        p2Wrap = document.createElement("div");
+        p2Wrap.id = "routeStatsWrapP2";
+        p2Wrap.className = "chart-wrap";
+        p2Canvas = document.createElement("canvas");
+        p2Canvas.id = "routeStatsChartP2";
+        p2Wrap.appendChild(p2Canvas);
+        endStats.appendChild(p2Wrap);
+      }
+      if (p2Wrap) p2Wrap.classList.remove("hidden");
+
+      renderRouteChart(routeCanvas, duelPlayers[0].routeStats, `${t("duel.p1")}: ${t("stats.routesTitle")}`);
+      renderRouteChart(p2Canvas, duelPlayers[1].routeStats, `${t("duel.p2")}: ${t("stats.routesTitle")}`);
+      return;
+    }
+
+    const p2Wrap = document.getElementById("routeStatsWrapP2");
+    if (p2Wrap) p2Wrap.classList.add("hidden");
+    renderRouteChart(routeCanvas, routeStats, t("stats.routesTitle"));
   }
 
   function recordPacketStats(packet, targetIndex, wasHit) {
@@ -1659,7 +1836,7 @@
         btn.classList.remove("suggested");
       } else {
         btn.classList.remove("hidden");
-        if (running && config.suggestHighlight && suggestedSet.has(routeIndex)) btn.classList.add("suggested");
+        if (running && (config.suggestHighlight || tutorialMode) && suggestedSet.has(routeIndex)) btn.classList.add("suggested");
         else btn.classList.remove("suggested");
       }
     });
@@ -1719,7 +1896,7 @@
   function drawTargets() {
     layoutTargets();
     const config = getDifficultyConfig();
-    const suggestedSet = config.suggestHighlight ? new Set(getSuggestedTargetIndices(getPriorityPacket())) : new Set();
+    const suggestedSet = (config.suggestHighlight || tutorialMode) ? new Set(getSuggestedTargetIndices(getPriorityPacket())) : new Set();
     const now = performance.now();
     for (let i = 0; i < targets.length; i += 1) {
       const tr = targets[i];
@@ -1765,6 +1942,87 @@
     }
   }
 
+  function drawTutorialPacketGuide(packet) {
+    if (!tutorialMode || !packet) return;
+    const correction = getTutorialCorrection(packet);
+    const keyToShow = correction.keyDisplay || correction.key;
+    const line1 = t("tutorial.pressNow", { key: keyToShow });
+    const line2 = correction.reason;
+    const shortLine2 = line2.length > 58 ? `${line2.slice(0, 57)}…` : line2;
+
+    const boxW = Math.min(360, GAME_W - 24);
+    const boxX = Math.max(12, Math.min(packet.x - 10, GAME_W - boxW - 12));
+    const boxY = Math.max(64, packet.y - 50);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(8, 24, 42, 0.92)";
+    ctx.strokeStyle = "rgba(89, 255, 154, 0.92)";
+    ctx.lineWidth = 1.8;
+    ctx.shadowColor = "rgba(89, 255, 154, 0.6)";
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, 38, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = "#9dffca";
+    ctx.font = "bold 12px Trebuchet MS";
+    ctx.fillText(line1, boxX + 10, boxY + 14);
+    ctx.fillStyle = "rgba(231, 247, 255, 0.92)";
+    ctx.font = "11px Trebuchet MS";
+    ctx.fillText(shortLine2, boxX + 10, boxY + 30);
+
+    const targetIndices = Array.isArray(packet.acceptedTargets) && packet.acceptedTargets.length
+      ? packet.acceptedTargets.filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < targets.length)
+      : (() => {
+        const idx = targets.findIndex((tr) => tr.key === correction.key);
+        return idx >= 0 ? [idx] : [];
+      })();
+
+    if (targetIndices.length > 0) {
+      const startY = packet.y + packet.h - 1;
+      const spreadBase = Math.min(22, packet.w * 0.14);
+      const spreadStep = targetIndices.length > 1 ? (spreadBase * 2) / (targetIndices.length - 1) : 0;
+
+      targetIndices.forEach((targetIndex, arrowIndex) => {
+        const targetRect = targets[targetIndex] ? targets[targetIndex].rect : null;
+        if (!targetRect || targetRect.w <= 0) return;
+
+        const targetX = targetRect.x + targetRect.w * 0.5;
+        const targetY = targetRect.y + 3;
+        const startX = packet.x + packet.w * 0.5 - spreadBase + spreadStep * arrowIndex;
+        const ctrlY = startY + (targetY - startY) * 0.55;
+
+        ctx.strokeStyle = "rgba(89, 255, 154, 0.94)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(startX, ctrlY, targetX, targetY - 8);
+        ctx.stroke();
+
+        const arrowBaseY = targetY - 10;
+        ctx.fillStyle = "rgba(89, 255, 154, 0.96)";
+        ctx.beginPath();
+        ctx.moveTo(targetX, targetY);
+        ctx.lineTo(targetX - 6, arrowBaseY);
+        ctx.lineTo(targetX + 6, arrowBaseY);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(89, 255, 154, 0.95)";
+        ctx.lineWidth = 2.4;
+        ctx.shadowColor = "rgba(89, 255, 154, 0.85)";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.roundRect(targetRect.x + 2, targetRect.y + 2, targetRect.w - 4, targetRect.h - 4, 10);
+        ctx.stroke();
+      });
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  }
+
   function drawPackets() {
     const priorityPacket = getPriorityPacket();
     const priorityId = priorityPacket ? priorityPacket.id : -1;
@@ -1789,6 +2047,10 @@
       if (isPriority) {
         ctx.fillStyle = "rgba(255, 209, 102, 0.2)";
         ctx.fillRect(p.x + 1, p.y + 1, p.w - 2, 10);
+        if (tutorialMode) {
+          ctx.fillStyle = "rgba(89, 255, 154, 0.15)";
+          ctx.fillRect(p.x + 1, p.y + 11, p.w - 2, 15);
+        }
       }
 
       ctx.shadowBlur = 0;
@@ -1810,6 +2072,8 @@
       ctx.fillRect(p.x + 8, p.y + 28, (p.w - 16) * timerRatio, 9);
       ctx.restore();
     }
+
+    if (tutorialMode && priorityPacket) drawTutorialPacketGuide(priorityPacket);
   }
 
   function drawParticles(dt) {
@@ -1847,20 +2111,70 @@
   }
 
   function drawToastLayer(foreground) {
-    let yOffset = 0;
+    const baseX = 24;
+    const baseY = 70;
+    const maxWidth = GAME_W - baseX * 2;
+    const lineHeight = 19;
+    const entryGap = 8;
+
+    function wrapToastText(text) {
+      const source = String(text || "");
+      const hardLines = source.split(/\r?\n/);
+      const wrapped = [];
+
+      for (let i = 0; i < hardLines.length; i += 1) {
+        const segment = hardLines[i].trim();
+        if (!segment) {
+          wrapped.push("");
+          continue;
+        }
+        const words = segment.split(/\s+/);
+        let current = words[0];
+        for (let w = 1; w < words.length; w += 1) {
+          const candidate = `${current} ${words[w]}`;
+          if (ctx.measureText(candidate).width <= maxWidth) {
+            current = candidate;
+          } else {
+            wrapped.push(current);
+            current = words[w];
+          }
+        }
+        wrapped.push(current);
+      }
+      return wrapped.length ? wrapped : [""];
+    }
+
+    function measureToastStackHeight(isForeground) {
+      let height = 0;
+      for (let i = 0; i < toasts.length; i += 1) {
+        const t = toasts[i];
+        if (t.foreground !== isForeground) continue;
+        const lines = wrapToastText(t.text);
+        height += lines.length * lineHeight + entryGap;
+      }
+      return height;
+    }
+
+    ctx.save();
+    ctx.font = "bold 16px Trebuchet MS";
+    let yCursor = baseY;
+    if (foreground) yCursor += measureToastStackHeight(false);
+
     for (let i = 0; i < toasts.length; i += 1) {
       const t = toasts[i];
       if (t.foreground !== foreground) continue;
       const alpha = Math.max(0, t.life / t.maxLife);
-      const y = 70 + yOffset * 24;
-      yOffset += 1;
-      ctx.save();
+      const lines = wrapToastText(t.text);
+
       ctx.globalAlpha = alpha;
-      ctx.font = "bold 16px Trebuchet MS";
       ctx.fillStyle = t.color;
-      ctx.fillText(t.text, 24, y);
-      ctx.restore();
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        ctx.fillText(lines[lineIndex], baseX, yCursor + lineIndex * lineHeight);
+      }
+      yCursor += lines.length * lineHeight + entryGap;
     }
+
+    ctx.restore();
   }
 
   function drawHUD() {

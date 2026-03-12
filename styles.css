@@ -580,6 +580,54 @@ body {
   text-decoration: underline;
 }
 
+#tutorialOverlay {
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+  padding: calc(0px + env(safe-area-inset-top, 0px)) 10px 0;
+}
+
+#tutorialOverlay .tutorial-panel {
+  width: min(95%, 760px);
+  max-height: none;
+  overflow: visible;
+  padding: 12px 14px;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "title actions"
+    "text actions";
+  gap: 8px 12px;
+  align-items: center;
+  background: linear-gradient(160deg, rgba(12, 20, 38, 0.9), rgba(8, 12, 26, 0.92));
+}
+
+#tutorialOverlay .tutorial-panel h2 {
+  grid-area: title;
+  margin: 0;
+  font-size: 16px;
+}
+
+#tutorialOverlay .tutorial-panel p {
+  grid-area: text;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+#tutorialOverlay .tutorial-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#tutorialOverlay .tutorial-actions button {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
 .panel button {
   margin-top: 10px;
   border: 1px solid var(--neon);
@@ -828,9 +876,47 @@ body {
 }
 
 @media (max-width: 700px) {
+  #tutorialOverlay {
+    padding-top: calc(0px + env(safe-area-inset-top, 0px));
+  }
+
+  #tutorialOverlay .tutorial-panel {
+    width: min(96%, 560px);
+    padding: 10px 12px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "text"
+      "actions";
+    gap: 8px;
+  }
+
+  #tutorialOverlay .tutorial-panel h2 {
+    display: none;
+  }
+
+  #tutorialOverlay .tutorial-panel p {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  #tutorialOverlay .tutorial-actions {
+    justify-content: flex-end;
+  }
+
+  #tutorialOverlay .tutorial-actions button {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
   .controls {
     gap: 6px;
     padding: 0 6px;
+  }
+
+  .controls > * {
+    flex: 1 1 calc((100% - 18px) / 4);
+    max-width: calc((100% - 18px) / 4);
+    min-width: 0;
   }
 
   .controls button {
@@ -841,8 +927,8 @@ body {
   .controls .difficulty-select,
   .controls .mode-select {
     order: 2;
-    min-width: 7rem;
-    max-width: 12rem;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .panel {

@@ -1,4 +1,4 @@
-(function () {
+(async function () {
   const logEl = document.getElementById("log");
   const summaryEl = document.getElementById("summary");
 
@@ -21,6 +21,58 @@
       i += 1;
       return v;
     };
+  }
+
+  function flatten(obj, prefix, out) {
+    const target = out || {};
+    const p = prefix || "";
+    const keys = Object.keys(obj || {});
+    for (let i = 0; i < keys.length; i += 1) {
+      const k = keys[i];
+      const v = obj[k];
+      const next = p ? p + "." + k : k;
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        flatten(v, next, target);
+      } else {
+        target[next] = v;
+      }
+    }
+    return target;
+  }
+
+  async function assetExists(path) {
+    const url = "../" + path;
+    try {
+      const headRes = await fetch(url, { method: "HEAD", cache: "no-store" });
+      if (headRes.ok) return true;
+      if (headRes.status !== 405) return false;
+    } catch (err) {
+      // Some static servers do not support HEAD. Fall back to GET.
+    }
+
+    try {
+      const getRes = await fetch(url, { method: "GET", cache: "no-store" });
+      return getRes.ok;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  async function fetchText(path) {
+    const url = "../" + path;
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    if (!res.ok) throw new Error("failed to fetch " + path + " (" + res.status + ")");
+    return res.text();
+  }
+
+  function extractPlaceholders(text) {
+    const src = String(text == null ? "" : text);
+    const out = [];
+    const rx = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+    let m;
+    while ((m = rx.exec(src)) !== null) out.push(m[1]);
+    out.sort();
+    return out;
   }
 
   const tests = [
@@ -74,6 +126,127 @@
     function testDuelDrawWhenScoresEqual() {
       const winner = window.ipv6ggDuelCore.resolveDuelWinner({ lives: 0, score: 250 }, { lives: 0, score: 250 }).winner;
       assert(winner === "tie", "when both are down and scores equal, duel must be draw");
+    },
+    function testI18nKeysConsistency() {
+      assert(window.i18n && window.i18n.strings, "i18n strings must be loaded");
+      const strings = window.i18n.strings;
+      const langs = Object.keys(strings);
+      const base = flatten(strings.de || {});
+      const baseKeys = Object.keys(base);
+
+      for (let li = 0; li < langs.length; li += 1) {
+        const lang = langs[li];
+        const map = flatten(strings[lang] || {});
+
+        for (let i = 0; i < baseKeys.length; i += 1) {
+          const key = baseKeys[i];
+          assert(key in map, lang + " missing i18n key: " + key);
+        }
+
+        const langKeys = Object.keys(map);
+        for (let i = 0; i < langKeys.length; i += 1) {
+          const key = langKeys[i];
+          assert(key in base, lang + " has extra i18n key: " + key);
+        }
+      }
+    },
+    function testI18nPlaceholderConsistency() {
+      assert(window.i18n && window.i18n.strings, "i18n strings must be loaded");
+      const strings = window.i18n.strings;
+      const langs = Object.keys(strings);
+      const base = flatten(strings.de || {});
+      const baseKeys = Object.keys(base);
+
+      for (let li = 0; li < langs.length; li += 1) {
+        const lang = langs[li];
+        const map = flatten(strings[lang] || {});
+        for (let i = 0; i < baseKeys.length; i += 1) {
+          const key = baseKeys[i];
+          const baseVal = base[key];
+          const langVal = map[key];
+          if (typeof baseVal !== "string" || typeof langVal !== "string") continue;
+
+          const expected = extractPlaceholders(baseVal).join("|");
+          const actual = extractPlaceholders(langVal).join("|");
+          assert(
+            expected === actual,
+            lang + " placeholder mismatch for i18n key: " + key + " (expected " + expected + ", got " + actual + ")"
+          );
+        }
+      }
+    },
+    async function testDuelLogWiringInGameJs() {
+      const src = await fetchText("game.js");
+      assert(/function\s+duelScoreHit\s*\(/.test(src), "duelScoreHit must exist");
+      assert(/function\s+duelScoreMiss\s*\(/.test(src), "duelScoreMiss must exist");
+      assert(/pushGameLog\s*\(\s*\{\s*\n\s*playerId:\s*state\.playerId/m.test(src), "duel logs must include playerId");
+      assert(/\[\$\{t\("duel\.p1"\)\}\]/.test(src), "rendered log should prefix player 1 label");
+      assert(/\[\$\{t\("duel\.p2"\)\}\]/.test(src), "rendered log should prefix player 2 label");
+    },
+    async function testDuelChartsWiringInGameJs() {
+      const src = await fetchText("game.js");
+      assert(/routeStatsChartP2/.test(src), "duel should render a second chart canvas");
+      assert(/renderRouteChart\(routeCanvas,\s*duelPlayers\[0\]\.routeStats/.test(src), "duel chart should use player 1 stats");
+      assert(/renderRouteChart\(p2Canvas,\s*duelPlayers\[1\]\.routeStats/.test(src), "duel chart should use player 2 stats");
+    },
+    async function testRuntimeDomIdsInIndexHtml() {
+      const html = await fetchText("index.html");
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const requiredIds = [
+        "game",
+        "endOverlay",
+        "endPanel",
+        "endMetricsText",
+        "routeStatsChart",
+        "viewLogBtn",
+        "gameLogPanel",
+        "gameLogList",
+        "closeLogBtn",
+        "tutorialOverlay",
+        "tutorialText",
+        "tutorialSkipBtn"
+      ];
+
+      const missing = [];
+      for (let i = 0; i < requiredIds.length; i += 1) {
+        const id = requiredIds[i];
+        if (!doc.getElementById(id)) missing.push(id);
+      }
+
+      assert(missing.length === 0, "index.html missing required runtime ids: " + missing.join(", "));
+    },
+    async function testSoundAssetsAvailable() {
+      const langs = ["de", "en", "fr", "es"];
+      const required = [
+        "sound/ipv6-track1.mp3",
+        "sound/ipv6-track2.mp3",
+        "sound/combo.mp3",
+        "sound/mega.mp3",
+        "sound/router.mp3",
+        "sound/monster.mp3"
+      ];
+
+      for (let i = 0; i < langs.length; i += 1) {
+        const lang = langs[i];
+        required.push("sound/tutorial-achievement-" + lang + ".mp3");
+        for (let v = 0; v <= 9; v += 1) {
+          required.push("sound/levelup-" + lang + "-" + v + ".mp3");
+        }
+      }
+
+      const unique = Array.from(new Set(required));
+      assert(unique.length === required.length, "sound asset test list has duplicate entries");
+
+      const missing = [];
+      for (let i = 0; i < unique.length; i += 1) {
+        const file = unique[i];
+        const ok = await assetExists(file);
+        if (!ok) missing.push(file);
+      }
+
+      missing.sort();
+
+      assert(missing.length === 0, "missing sound files: " + missing.join(", "));
     }
   ];
 
@@ -84,7 +257,10 @@
   for (let i = 0; i < tests.length; i += 1) {
     const name = tests[i].name || "test_" + i;
     try {
-      tests[i]();
+      const result = tests[i]();
+      if (result && typeof result.then === "function") {
+        await result;
+      }
       pass += 1;
       lines.push("PASS " + name);
     } catch (err) {
