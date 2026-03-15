@@ -253,7 +253,7 @@
   function syncTrackInfo() {
     if (!trackInfo) return;
     const shouldShow = musicEnabled && !!currentBgmPath;
-    trackInfo.textContent = shouldShow ? t("music.nowPlaying", { track: getBgmTrackLabel(currentBgmTrack) }) : "";
+    trackInfo.textContent = shouldShow ? getBgmTrackLabel(currentBgmTrack) : "";
     trackInfo.classList.toggle("hidden", !shouldShow);
   }
 
@@ -340,6 +340,17 @@
       return;
     }
     void queueBgmPlayback(currentBgmTrack);
+  }
+
+  function tryStartNextMusicTrack() {
+    const nextTrackNumber = (currentBgmTrack % MAX_BGM_TRACKS) + 1;
+    bgm.pause();
+    bgm.currentTime = 0;
+    currentBgmTrack = nextTrackNumber;
+    currentBgmPath = "";
+    syncTrackInfo();
+    if (!musicEnabled) return;
+    void queueBgmPlayback(nextTrackNumber);
   }
 
   function syncMusicButton() {
@@ -2417,7 +2428,7 @@
     if (audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume();
     }
-    tryStartMusic();
+    tryStartNextMusicTrack();
     startGame();
   });
 
