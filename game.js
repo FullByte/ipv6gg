@@ -342,15 +342,19 @@
     void queueBgmPlayback(currentBgmTrack);
   }
 
-  function tryStartNextMusicTrack() {
-    const nextTrackNumber = (currentBgmTrack % MAX_BGM_TRACKS) + 1;
+  function getRandomBgmTrackNumber() {
+    return Math.floor(Math.random() * MAX_BGM_TRACKS) + 1;
+  }
+
+  function tryStartRandomMusicTrack() {
+    const randomTrackNumber = getRandomBgmTrackNumber();
     bgm.pause();
     bgm.currentTime = 0;
-    currentBgmTrack = nextTrackNumber;
+    currentBgmTrack = randomTrackNumber;
     currentBgmPath = "";
     syncTrackInfo();
     if (!musicEnabled) return;
-    void queueBgmPlayback(nextTrackNumber);
+    void queueBgmPlayback(randomTrackNumber);
   }
 
   function syncMusicButton() {
@@ -2419,7 +2423,7 @@
     if (audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume();
     }
-    tryStartMusic();
+    tryStartRandomMusicTrack();
     startGame();
   });
 
@@ -2428,7 +2432,7 @@
     if (audioCtx && audioCtx.state === "suspended") {
       audioCtx.resume();
     }
-    tryStartNextMusicTrack();
+    tryStartRandomMusicTrack();
     startGame();
   });
 
