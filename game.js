@@ -29,6 +29,7 @@
   const tutorialSkipBtn = document.getElementById("tutorialSkipBtn");
   const LANG_FLAGS = { de: "🇩🇪", en: "🇬🇧", fr: "🇫🇷", es: "🇪🇸" };
   const bgm = document.getElementById("bgm");
+  const trackInfo = document.getElementById("trackInfo");
   const impactFlash = document.getElementById("impactFlash");
   const mobileButtons = document.getElementById("mobileButtons");
   const helpOverlay = document.getElementById("helpOverlay");
@@ -50,6 +51,8 @@
   const neon = "#28d7ff";
   const okColor = "#59ff9a";
   const badColor = "#ff5b7d";
+  const MAX_BGM_TRACKS = 9;
+  const BGM_DIRS = ["sound", "sounds"];
 
   let packets = [];
   let particles = [];
@@ -71,6 +74,11 @@
   let touchEnabled = true;
   let touchEnabledPreference = true;
   let musicEnabled = true;
+  let currentBgmTrack = 1;
+  let currentBgmPath = "";
+  let bgmLoadPromise = null;
+  const bgmResolvedPaths = new Map();
+  const bgmMissingPaths = new Set();
   const SOUND_MODES = ["person", "effekt", "off"];
   let soundMode = "person";
   const DIFFICULTIES = ["easy", "normal", "hard"];
@@ -232,9 +240,24 @@
   }
 
   bgm.volume = 0.35;
+  bgm.loop = false;
 
-  function tryStartMusic() {
-    if (!musicEnabled) return;
+  function getBgmTrackCandidates(trackNumber) {
+    return BGM_DIRS.map((dir) => `${dir}/ipv6-track${trackNumber}.mp3`);
+  }
+
+  function getBgmTrackLabel(trackNumber) {
+    return `ipv6-track${trackNumber}`;
+  }
+
+  function syncTrackInfo() {
+    if (!trackInfo) return;
+    const shouldShow = musicEnabled && !!currentBgmPath;
+    trackInfo.textContent = shouldShow ? t("music.nowPlaying", { track: getBgmTrackLabel(currentBgmTrack) }) : "";
+    trackInfo.classList.toggle("hidden", !shouldShow);
+  }
+
+  function tryPlayLoadedMusic() {
     const p = bgm.play();
     if (p && typeof p.catch === "function") {
       p.catch(() => {
@@ -243,10 +266,94 @@
     }
   }
 
+  function attemptLoadBgmPath(path) {
+    return new Promise((resolve) => {
+      const onLoaded = () => resolveWith(true);
+      const onError = () => resolveWith(false);
+      const resolveWith = (loaded) => {
+        bgm.removeEventListener("loadedmetadata", onLoaded);
+        bgm.removeEventListener("error", onError);
+        resolve(loaded);
+      };
+
+      bgm.addEventListener("loadedmetadata", onLoaded);
+      bgm.addEventListener("error", onError);
+      bgm.src = path;
+      bgm.dataset.trackPath = path;
+      bgm.load();
+    });
+  }
+
+  async function resolveBgmTrackPath(trackNumber) {
+    const cachedPath = bgmResolvedPaths.get(trackNumber);
+    if (cachedPath) {
+      const cachedLoaded = await attemptLoadBgmPath(cachedPath);
+      if (cachedLoaded) return cachedPath;
+      bgmResolvedPaths.delete(trackNumber);
+      bgmMissingPaths.add(cachedPath);
+    }
+
+    const candidates = getBgmTrackCandidates(trackNumber);
+    for (let i = 0; i < candidates.length; i += 1) {
+      const path = candidates[i];
+      if (bgmMissingPaths.has(path)) continue;
+      const loaded = await attemptLoadBgmPath(path);
+      if (loaded) {
+        bgmResolvedPaths.set(trackNumber, path);
+        return path;
+      }
+      bgmMissingPaths.add(path);
+    }
+
+    return "";
+  }
+
+  async function queueBgmPlayback(startTrackNumber) {
+    if (bgmLoadPromise) return bgmLoadPromise;
+    bgmLoadPromise = (async () => {
+      for (let offset = 0; offset < MAX_BGM_TRACKS; offset += 1) {
+        const trackNumber = ((startTrackNumber - 1 + offset) % MAX_BGM_TRACKS) + 1;
+        const path = await resolveBgmTrackPath(trackNumber);
+        if (!path) continue;
+        currentBgmTrack = trackNumber;
+        currentBgmPath = path;
+        syncTrackInfo();
+        if (musicEnabled) tryPlayLoadedMusic();
+        return true;
+      }
+
+      currentBgmPath = "";
+      syncTrackInfo();
+      return false;
+    })().finally(() => {
+      bgmLoadPromise = null;
+    });
+    return bgmLoadPromise;
+  }
+
+  function tryStartMusic() {
+    if (!musicEnabled) return;
+    const hasLoadedTrack = currentBgmPath && bgm.dataset.trackPath === currentBgmPath && bgm.readyState >= 1;
+    if (hasLoadedTrack) {
+      if (bgm.paused) tryPlayLoadedMusic();
+      syncTrackInfo();
+      return;
+    }
+    void queueBgmPlayback(currentBgmTrack);
+  }
+
   function syncMusicButton() {
     musicBtn.textContent = `${t("btn.music")}: ${musicEnabled ? t("toggle.on") : t("toggle.off")}`;
     musicBtn.setAttribute("aria-label", t("aria.music"));
+    syncTrackInfo();
   }
+
+  bgm.addEventListener("ended", () => {
+    currentBgmPath = "";
+    syncTrackInfo();
+    if (!musicEnabled) return;
+    void queueBgmPlayback((currentBgmTrack % MAX_BGM_TRACKS) + 1);
+  });
 
   function syncSoundButton() {
     soundBtn.textContent = `${t("btn.sound")}: ${t("soundMode." + soundMode)}`;

@@ -250,6 +250,29 @@ body {
   background: rgba(6, 16, 36, 0.78);
 }
 
+.track-info {
+  position: absolute;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 7px 14px;
+  border: 1px solid rgba(157, 232, 255, 0.38);
+  border-radius: 999px;
+  background: rgba(6, 16, 36, 0.78);
+  box-shadow: 0 0 18px rgba(40, 215, 255, 0.16);
+  color: #d8f6ff;
+  font: 600 12px/1.2 "Trebuchet MS", "Segoe UI", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  text-align: center;
+  max-width: min(calc(100% - 32px), 360px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .shader-combo-banner {
   position: absolute;
   left: 50%;
@@ -836,7 +859,8 @@ body {
 
   .impact-flash,
   .shader-effect,
-  .shader-combo-banner {
+  .shader-combo-banner,
+  .track-info {
     display: none !important;
   }
 }
@@ -876,6 +900,12 @@ body {
 }
 
 @media (max-width: 700px) {
+  .track-info {
+    top: 58px;
+    max-width: min(calc(100% - 24px), 320px);
+    font-size: 11px;
+  }
+
   #tutorialOverlay {
     padding-top: calc(0px + env(safe-area-inset-top, 0px));
   }
